@@ -78,6 +78,10 @@ export class Client {
     return this.agent.patch(url).set('x-csrf-token', this.csrf).send(body);
   }
 
+  put(url: string, body: object = {}) {
+    return this.agent.put(url).set('x-csrf-token', this.csrf).send(body);
+  }
+
   delete(url: string) {
     return this.agent.delete(url).set('x-csrf-token', this.csrf);
   }

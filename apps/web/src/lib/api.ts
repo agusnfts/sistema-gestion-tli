@@ -22,7 +22,7 @@ async function getCsrfToken(force = false): Promise<string> {
 }
 
 type RequestOptions = {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
 };

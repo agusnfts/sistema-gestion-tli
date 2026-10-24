@@ -24,6 +24,13 @@ export const AUDIT_ACTIONS = [
   'catalog.created',
   'catalog.updated',
   'audit.chain.verified',
+  'ticket.created',
+  'ticket.status.changed',
+  'ticket.assigned',
+  'ticket.priority.changed',
+  'settings.updated',
+  'holiday.created',
+  'holiday.deleted',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -53,4 +60,11 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'catalog.created': 'Catálogo: alta',
   'catalog.updated': 'Catálogo: modificación',
   'audit.chain.verified': 'Verificación de integridad de auditoría',
+  'ticket.created': 'Ticket creado',
+  'ticket.status.changed': 'Cambio de estado de ticket',
+  'ticket.assigned': 'Ticket asignado',
+  'ticket.priority.changed': 'Cambio de prioridad de ticket',
+  'settings.updated': 'Configuración modificada',
+  'holiday.created': 'Feriado agregado',
+  'holiday.deleted': 'Feriado eliminado',
 };

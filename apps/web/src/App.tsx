@@ -1,4 +1,4 @@
-import { createBrowserRouter, Link, RouterProvider } from 'react-router';
+import { createBrowserRouter, Link, Navigate, RouterProvider } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApiError } from '@/lib/api';
 import { ME_KEY } from '@/lib/auth';
@@ -14,6 +14,18 @@ import { UsersPage } from '@/features/admin/UsersPage';
 import { RolesPage } from '@/features/admin/RolesPage';
 import { CatalogsPage } from '@/features/admin/CatalogsPage';
 import { AuditPage } from '@/features/admin/AuditPage';
+import { SettingsPage } from '@/features/admin/SettingsPage';
+import { NewTicketPage } from '@/features/tickets/NewTicketPage';
+import { MyTicketsPage } from '@/features/tickets/MyTicketsPage';
+import { TicketsInboxPage } from '@/features/tickets/TicketsInboxPage';
+import { TicketDetailPage } from '@/features/tickets/TicketDetailPage';
+import { useHasPermission } from '@/lib/auth';
+
+/** Admin e IT empiezan en Inicio; el usuario común, en "Mis tickets". */
+function HomeRoute() {
+  const can = useHasPermission();
+  return can('dashboard.view') ? <HomePage /> : <Navigate to="/mis-tickets" replace />;
+}
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -64,7 +76,40 @@ const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { index: true, element: <HomePage /> },
+          { index: true, element: <HomeRoute /> },
+          {
+            path: 'mis-tickets',
+            element: (
+              <RequirePermission permission="ticket.read.own">
+                <MyTicketsPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'tickets',
+            element: (
+              <RequirePermission permission="ticket.read.all">
+                <TicketsInboxPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'tickets/nuevo',
+            element: (
+              <RequirePermission permission="ticket.create">
+                <NewTicketPage />
+              </RequirePermission>
+            ),
+          },
+          { path: 'tickets/:id', element: <TicketDetailPage /> },
+          {
+            path: 'admin/configuracion',
+            element: (
+              <RequirePermission permission="settings.manage">
+                <SettingsPage />
+              </RequirePermission>
+            ),
+          },
           { path: 'mi-cuenta', element: <AccountPage /> },
           {
             path: 'admin/usuarios',

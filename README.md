@@ -6,12 +6,13 @@ La documentación de diseño está en [`docs/`](docs/README.md) (arquitectura, m
 
 ## Estado
 
-| Fase | Contenido                                                                       | Estado    |
-| ---- | ------------------------------------------------------------------------------- | --------- |
-| 0    | Diseño                                                                          | ✅        |
-| 1    | Base: monorepo, auth + MFA, usuarios, roles, auditoría, layout, CI              | ✅        |
-| 2    | Ticketera                                                                       | Pendiente |
-| 3–8  | Problemas, mejoras, clientes/integraciones, conocimiento, dashboard, producción | Pendiente |
+| Fase | Contenido                                                                              | Estado    |
+| ---- | -------------------------------------------------------------------------------------- | --------- |
+| 0    | Diseño                                                                                 | ✅        |
+| 1    | Base: monorepo, auth + MFA, usuarios, roles, auditoría, layout, CI                     | ✅        |
+| 2a   | Ticketera: formulario guiado, estados, SLA, notificaciones, Mis tickets, bandeja de IT | ✅        |
+| 2b   | Adjuntos con antivirus, worker (BullMQ), mail opcional, texto enriquecido              | Pendiente |
+| 3–8  | Problemas, mejoras, clientes/integraciones, conocimiento, dashboard, producción        | Pendiente |
 
 ## Stack
 
@@ -82,6 +83,7 @@ Los tests e2e de la API pueden usar una base aparte definiendo `TEST_DATABASE_UR
 ## Diseño
 
 La estética sigue el brochure institucional de TML 2026:
+
 - **Logo:** versiones color y blanca, más el isotipo como favicon. Están en `apps/web/public`.
 - **Tipografía:** Poppins, servida desde el propio sistema con `@fontsource`, sin pedidos a Google.
 - **Colores:** azul marino `#0D3B70`, azul de títulos `#005CB9`, verde del isotipo `#69BF4A` y grises cálidos.

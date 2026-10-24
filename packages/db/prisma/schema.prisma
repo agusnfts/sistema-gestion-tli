@@ -1,5 +1,6 @@
 // Schema de datos del Sistema de Gestión TLI. Ver docs/data-model.md.
 // Fase 1: identidad, sesiones, RBAC, auditoría y catálogos.
+// Fase 2: tickets, comentarios, tiempo, actividad, notificaciones y configuración de SLA.
 
 generator client {
   provider = "prisma-client-js"
@@ -17,28 +18,28 @@ enum UserStatus {
 }
 
 model User {
-  id                 String     @id @default(uuid()) @db.Uuid
+  id                  String     @id @default(uuid()) @db.Uuid
   // Se guarda siempre en minúsculas.
-  email              String     @unique
-  fullName           String
-  passwordHash       String
-  mustChangePassword Boolean    @default(true)
-  passwordChangedAt  DateTime?
-  status             UserStatus @default(ACTIVE)
-  defaultAreaId      String?    @db.Uuid
-  defaultWarehouseId String?    @db.Uuid
+  email               String     @unique
+  fullName            String
+  passwordHash        String
+  mustChangePassword  Boolean    @default(true)
+  passwordChangedAt   DateTime?
+  status              UserStatus @default(ACTIVE)
+  defaultAreaId       String?    @db.Uuid
+  defaultWarehouseId  String?    @db.Uuid
   // Secretos TOTP cifrados con AES-256-GCM (MFA_ENCRYPTION_KEY).
-  mfaSecretEnc       String?
+  mfaSecretEnc        String?
   mfaPendingSecretEnc String?
-  mfaEnabledAt       DateTime?
+  mfaEnabledAt        DateTime?
   // Último time-step TOTP aceptado: impide reutilizar un código (ASVS 2.8.4).
-  mfaLastUsedStep    Int?
-  failedLoginCount   Int        @default(0)
-  lockedUntil        DateTime?
-  lastLoginAt        DateTime?
-  anonymizedAt       DateTime?
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  mfaLastUsedStep     Int?
+  failedLoginCount    Int        @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  anonymizedAt        DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   defaultArea      Area?             @relation(fields: [defaultAreaId], references: [id])
   defaultWarehouse Warehouse?        @relation(fields: [defaultWarehouseId], references: [id])
@@ -46,6 +47,12 @@ model User {
   sessions         Session[]
   recoveryCodes    MfaRecoveryCode[]
   auditEntries     AuditLog[]
+  requestedTickets Ticket[]          @relation("TicketRequester")
+  assignedTickets  Ticket[]          @relation("TicketAssignee")
+  ticketComments   TicketComment[]
+  timeEntries      TimeEntry[]
+  notifications    Notification[]
+  activityEvents   ActivityEvent[]
 
   @@index([status])
 }
@@ -89,19 +96,19 @@ model UserRole {
 }
 
 model Session {
-  id          String    @id @default(uuid()) @db.Uuid
+  id            String    @id @default(uuid()) @db.Uuid
   // SHA-256 del token opaco que viaja en la cookie.
-  tokenHash   String    @unique
-  userId      String    @db.Uuid
-  mfaVerified Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  lastSeenAt  DateTime  @default(now())
+  tokenHash     String    @unique
+  userId        String    @db.Uuid
+  mfaVerified   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
   idleExpiresAt DateTime
-  expiresAt   DateTime
-  revokedAt   DateTime?
-  ip          String?
-  userAgent   String?
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  ip            String?
+  userAgent     String?
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -143,6 +150,7 @@ model Area {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   users     User[]
+  tickets   Ticket[]
 }
 
 model Warehouse {
@@ -152,6 +160,7 @@ model Warehouse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   users     User[]
+  tickets   Ticket[]
 }
 
 model Provider {
@@ -160,4 +169,190 @@ model Provider {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Fase 2: ticketera
+// ---------------------------------------------------------------------------
+
+enum TicketType {
+  SUPPORT
+  AUTOMATION
+  INTEGRATION
+  ACCESS
+}
+
+// ACCESS queda solo por tickets históricos: los accesos ahora son un tipo de ticket.
+enum TicketCategory {
+  WMS
+  TMS
+  TYT
+  ROUTING
+  INTEGRATION
+  ACCESS
+  HARDWARE
+  NETWORK
+  OTHER
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TicketStatus {
+  NEW
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_USER
+  WAITING_VENDOR
+  RESOLVED
+  CLOSED
+  DERIVED_TO_IMPROVEMENT
+  DERIVED_TO_INTEGRATION
+}
+
+enum Channel {
+  WEB
+  EMAIL
+  CHATBOT
+  SYSTEM
+}
+
+enum Visibility {
+  PUBLIC
+  INTERNAL
+}
+
+model Ticket {
+  id                    String         @id @default(uuid()) @db.Uuid
+  // Se muestra como TLI-000123.
+  number                Int            @unique @default(autoincrement())
+  type                  TicketType
+  category              TicketCategory
+  subject               String
+  description           String
+  requesterId           String         @db.Uuid
+  assigneeId            String?        @db.Uuid
+  warehouseId           String?        @db.Uuid
+  areaId                String?        @db.Uuid
+  userUrgency           Priority
+  priority              Priority
+  // true mientras la prioridad sea la urgencia indicada por el usuario (IT todavía no la fijó).
+  priorityIsProvisional Boolean        @default(true)
+  status                TicketStatus   @default(NEW)
+  channel               Channel        @default(WEB)
+  // Respuestas específicas del tipo de ticket (validadas con zod en @tli/shared).
+  extraFields           Json           @default("{}")
+
+  // SLA (ADR 0007). Los vencimientos se recalculan al cambiar prioridad o al reanudar una pausa.
+  firstResponseDueAt    DateTime
+  resolutionDueAt       DateTime?
+  firstRespondedAt      DateTime?
+  slaPausedAt           DateTime?
+  slaPausedMinutes      Int       @default(0)
+  firstResponseRiskAt   DateTime?
+  firstResponseBreachAt DateTime?
+  resolutionRiskAt      DateTime?
+  resolutionBreachAt    DateTime?
+
+  resolvedAt         DateTime?
+  closedAt           DateTime?
+  closeReason        String?
+  resolutionCause    String?
+  resolutionSolution String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  requester   User            @relation("TicketRequester", fields: [requesterId], references: [id])
+  assignee    User?           @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  warehouse   Warehouse?      @relation(fields: [warehouseId], references: [id])
+  area        Area?           @relation(fields: [areaId], references: [id])
+  comments    TicketComment[]
+  timeEntries TimeEntry[]
+
+  @@index([status, assigneeId])
+  @@index([requesterId, createdAt])
+  @@index([firstResponseDueAt])
+  @@index([resolutionDueAt])
+}
+
+model TicketComment {
+  id         String     @id @default(uuid()) @db.Uuid
+  ticketId   String     @db.Uuid
+  authorId   String     @db.Uuid
+  body       String
+  visibility Visibility @default(PUBLIC)
+  source     Channel    @default(WEB)
+  createdAt  DateTime   @default(now())
+  ticket     Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author     User       @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+model TimeEntry {
+  id        String   @id @default(uuid()) @db.Uuid
+  ticketId  String   @db.Uuid
+  userId    String   @db.Uuid
+  minutes   Int
+  workDate  DateTime @db.Date
+  note      String?
+  createdAt DateTime @default(now())
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([ticketId])
+  @@index([userId, workDate])
+}
+
+// Historial funcional de cualquier entidad (lo que se ve en el detalle). La auditoría es aparte.
+model ActivityEvent {
+  id         String     @id @default(uuid()) @db.Uuid
+  entityType String
+  entityId   String     @db.Uuid
+  actorId    String?    @db.Uuid
+  kind       String
+  field      String?
+  oldValue   String?
+  newValue   String?
+  // PUBLIC: lo ve también el solicitante (ej. cambios de estado).
+  visibility Visibility @default(INTERNAL)
+  occurredAt DateTime   @default(now())
+  actor      User?      @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId, occurredAt])
+}
+
+model Notification {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  kind       String
+  title      String
+  body       String?
+  link       String?
+  entityType String?
+  entityId   String?   @db.Uuid
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+// Configuración clave/valor (SLA, horario hábil, cierre automático, mail).
+model Setting {
+  key         String   @id
+  value       Json
+  updatedById String?  @db.Uuid
+  updatedAt   DateTime @updatedAt
+}
+
+model Holiday {
+  id        String   @id @default(uuid()) @db.Uuid
+  date      DateTime @unique @db.Date
+  name      String
+  createdAt DateTime @default(now())
 }

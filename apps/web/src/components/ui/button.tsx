@@ -17,6 +17,20 @@ const sizes: Record<Size, string> = {
   md: 'h-10 px-4 text-sm gap-2',
 };
 
+/** Clases de botón para usar en un <Link> (navegación) sin anidar un <button> dentro de un <a>. */
+export function buttonClasses(
+  variant: Variant = 'primary',
+  size: Size = 'md',
+  className?: string,
+): string {
+  return cn(
+    'inline-flex items-center justify-center rounded-[var(--radius-control)] font-medium transition-colors',
+    variants[variant],
+    sizes[size],
+    className,
+  );
+}
+
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
   size?: Size;

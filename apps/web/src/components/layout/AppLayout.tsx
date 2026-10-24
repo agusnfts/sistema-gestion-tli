@@ -6,6 +6,10 @@ import {
   ChevronDown,
   ClipboardList,
   Home,
+  Inbox,
+  PlusCircle,
+  Settings,
+  Ticket,
   KeyRound,
   LogOut,
   Menu,
@@ -20,27 +24,40 @@ import { useHasPermission, useMe } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { Logo } from './Logo';
 import { useLogout } from '@/features/auth/useLogout';
+import { NotificationBell } from './NotificationBell';
 
 type NavItem = { to: string; label: string; icon: typeof Home; permission?: PermissionKey };
 
 // Cada fase suma sus módulos acá; un ítem solo se muestra con el permiso correspondiente.
-const MAIN_NAV: NavItem[] = [{ to: '/', label: 'Inicio', icon: Home }];
+const MAIN_NAV: NavItem[] = [
+  { to: '/', label: 'Inicio', icon: Home, permission: 'dashboard.view' },
+  { to: '/tickets', label: 'Tickets', icon: Inbox, permission: 'ticket.read.all' },
+  { to: '/mis-tickets', label: 'Mis tickets', icon: Ticket, permission: 'ticket.read.own' },
+  { to: '/tickets/nuevo', label: 'Nuevo ticket', icon: PlusCircle, permission: 'ticket.create' },
+];
 
 const ADMIN_NAV: NavItem[] = [
   { to: '/admin/usuarios', label: 'Usuarios', icon: Users, permission: 'user.manage' },
   { to: '/admin/roles', label: 'Roles y permisos', icon: Shield, permission: 'role.manage' },
   { to: '/admin/catalogos', label: 'Catálogos', icon: Tags, permission: 'catalog.manage' },
+  {
+    to: '/admin/configuracion',
+    label: 'Configuración',
+    icon: Settings,
+    permission: 'settings.manage',
+  },
   { to: '/admin/auditoria', label: 'Auditoría', icon: ClipboardList, permission: 'audit.read' },
 ];
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const can = useHasPermission();
+  const main = MAIN_NAV.filter((i) => !i.permission || can(i.permission));
   const admin = ADMIN_NAV.filter((i) => !i.permission || can(i.permission));
   const link = (item: NavItem) => (
     <li key={item.to}>
       <NavLink
         to={item.to}
-        end={item.to === '/'}
+        end={item.to === '/' || item.to === '/tickets'}
         onClick={onNavigate}
         className={({ isActive }) =>
           cn(
@@ -58,7 +75,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   );
   return (
     <nav aria-label="Navegación principal" className="space-y-6">
-      <ul className="space-y-1">{MAIN_NAV.map(link)}</ul>
+      <ul className="space-y-1">{main.map(link)}</ul>
       {admin.length > 0 && (
         <div>
           <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -114,7 +131,8 @@ export function AppLayout() {
           Sistema de Gestión TLI
         </span>
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1">
+          <NotificationBell />
           <DropdownMenu.Root>
             <DropdownMenu.Trigger
               aria-label="Menú de usuario"

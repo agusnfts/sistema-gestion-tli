@@ -26,3 +26,10 @@ SLA de 1ª respuesta y resolución por tipo y prioridad, contado solo en horario
 ## Consecuencias
 
 - Las listas y el dashboard filtran por fecha guardada (índices simples), sin calcular en cada consulta.
+
+## Implementación (Fase 2a)
+
+- Lógica pura en `packages/shared/src/business-calendar.ts` y `packages/shared/src/tickets.ts`; transiciones en `apps/api/src/tickets/ticket-sla.ts`.
+- Las pausas se acumulan en `Ticket.slaPausedMinutes` (minutos hábiles) y los vencimientos se recalculan como `createdAt + objetivo + pausas`.
+- El monitor (`SlaMonitorService`) corre cada minuto dentro de la API y marca `*RiskAt` / `*BreachAt` con un update condicional, así una alerta se envía una sola vez. En la Fase 2b pasa a un job repetible del worker.
+- Feriados nacionales 2026 sembrados por `seedBase`; los días "puente" se cargan desde Configuración.

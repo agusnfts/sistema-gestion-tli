@@ -14,7 +14,7 @@ export const DEV_USERS = [
   { email: 'usuario@tli.local', fullName: 'Usuario Desarrollo', role: SYSTEM_ROLE_KEYS.USER },
 ] as const;
 
-const DEV_AREAS = ['Operaciones', 'Administración', 'Comercial', 'Transporte'];
+const DEV_AREAS = ['Operaciones', 'Administración', 'Comercial', 'Calidad', 'Transporte'];
 
 async function main(): Promise<void> {
   if (process.env.NODE_ENV === 'production') {

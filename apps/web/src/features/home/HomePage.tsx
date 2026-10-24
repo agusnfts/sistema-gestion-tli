@@ -1,5 +1,14 @@
 import { Link } from 'react-router';
-import { ClipboardList, Shield, Tags, UserCog, Users } from 'lucide-react';
+import {
+  AlarmClock,
+  ClipboardList,
+  Inbox,
+  Settings,
+  Shield,
+  Tags,
+  UserCog,
+  Users,
+} from 'lucide-react';
 import type { PermissionKey } from '@tli/shared';
 import { useHasPermission, useMe } from '@/lib/auth';
 import { Card, PageHeader } from '@/components/ui/misc';
@@ -13,6 +22,27 @@ type Shortcut = {
 };
 
 const SHORTCUTS: Shortcut[] = [
+  {
+    to: '/tickets',
+    title: 'Tickets',
+    text: 'Bandeja de IT',
+    icon: Inbox,
+    permission: 'ticket.read.all',
+  },
+  {
+    to: '/tickets?sla=breached',
+    title: 'SLA vencidos',
+    text: 'Tickets abiertos fuera de término',
+    icon: AlarmClock,
+    permission: 'ticket.read.all',
+  },
+  {
+    to: '/admin/configuracion',
+    title: 'Configuración',
+    text: 'SLA, horario hábil y feriados',
+    icon: Settings,
+    permission: 'settings.manage',
+  },
   {
     to: '/admin/usuarios',
     title: 'Usuarios',

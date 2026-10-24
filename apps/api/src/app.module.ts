@@ -12,6 +12,9 @@ import { CsrfGuard } from './auth/csrf.guard';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
 import { CatalogsModule } from './catalogs/catalogs.module';
+import { SettingsModule } from './settings/settings.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { TicketsModule } from './tickets/tickets.module';
 import { HealthController } from './health/health.controller';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 
@@ -56,6 +59,9 @@ import { HttpExceptionFilter } from './common/http-exception.filter';
     UsersModule,
     RolesModule,
     CatalogsModule,
+    SettingsModule,
+    NotificationsModule,
+    TicketsModule,
   ],
   controllers: [HealthController],
   providers: [
