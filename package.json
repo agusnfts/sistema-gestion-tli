@@ -1,0 +1,39 @@
+{
+  "name": "sistema-gestion-tli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema de Gestión TLI — TML Logística",
+  "packageManager": "pnpm@10.15.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:infra": "docker compose -f docker-compose.dev.yml up -d --wait",
+    "dev:infra:down": "docker compose -f docker-compose.dev.yml down",
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r run test",
+    "test:e2e": "pnpm --filter @tli/api run test:e2e",
+    "test:ui": "pnpm --filter @tli/web run test:ui",
+    "db:migrate": "pnpm --filter @tli/db run migrate:deploy",
+    "db:seed": "pnpm --filter @tli/db run seed",
+    "db:seed:dev": "pnpm --filter @tli/db run seed:dev",
+    "totp": "node scripts/totp.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "@types/node": "^24.3.1",
+    "eslint": "^9.35.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^16.3.0",
+    "otplib": "^12.0.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.43.0"
+  }
+}

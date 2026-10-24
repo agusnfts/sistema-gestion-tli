@@ -1,0 +1,69 @@
+import { Module, RequestMethod } from '@nestjs/common';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { LoggerModule } from 'nestjs-pino';
+import { ConfigModule } from './config/config.module';
+import { APP_CONFIG, type AppConfig } from './config/config';
+import { PrismaModule } from './prisma/prisma.service';
+import { AuditModule } from './audit/audit.module';
+import { AuthModule } from './auth/auth.module';
+import { AccessGuard } from './auth/access.guard';
+import { CsrfGuard } from './auth/csrf.guard';
+import { UsersModule } from './users/users.module';
+import { RolesModule } from './roles/roles.module';
+import { CatalogsModule } from './catalogs/catalogs.module';
+import { HealthController } from './health/health.controller';
+import { HttpExceptionFilter } from './common/http-exception.filter';
+
+@Module({
+  imports: [
+    ConfigModule,
+    LoggerModule.forRootAsync({
+      inject: [APP_CONFIG],
+      useFactory: (config: AppConfig) => ({
+        // Sintaxis de rutas de Express 5 / path-to-regexp v8 (evita el aviso de ruta legacy "*").
+        forRoutes: [{ path: '{*path}', method: RequestMethod.ALL }],
+        pinoHttp: {
+          level: config.logLevel,
+          transport: config.env === 'development' ? { target: 'pino-pretty' } : undefined,
+          autoLogging: { ignore: (req) => req.url === '/api/health' },
+          // Nunca loguear credenciales ni cookies.
+          redact: [
+            'req.headers.cookie',
+            'req.headers.authorization',
+            'req.headers["x-csrf-token"]',
+            'res.headers["set-cookie"]',
+          ],
+          serializers: {
+            req: (req: { id: unknown; method: string; url: string }) => ({
+              id: req.id,
+              method: req.method,
+              url: req.url,
+            }),
+          },
+        },
+      }),
+    }),
+    ThrottlerModule.forRootAsync({
+      inject: [APP_CONFIG],
+      useFactory: (config: AppConfig) => [
+        { name: 'default', ttl: 60_000, limit: config.throttle.defaultLimit },
+      ],
+    }),
+    PrismaModule,
+    AuditModule,
+    AuthModule,
+    UsersModule,
+    RolesModule,
+    CatalogsModule,
+  ],
+  controllers: [HealthController],
+  providers: [
+    // Orden: rate limit → CSRF → autenticación/autorización.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useExisting: CsrfGuard },
+    { provide: APP_GUARD, useExisting: AccessGuard },
+    { provide: APP_FILTER, useClass: HttpExceptionFilter },
+  ],
+})
+export class AppModule {}

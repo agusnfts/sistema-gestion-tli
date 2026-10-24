@@ -1,0 +1,203 @@
+# Modelo de datos
+
+Convenciones: IDs `uuid` (v7, ordenables), `createdAt`/`updatedAt` en todas las tablas, nombres en inglés, montos en `Decimal(14,2)` con moneda (`ARS` | `USD`), duraciones en minutos (`Int`).
+
+## Diagrama general
+
+```mermaid
+erDiagram
+    User }o--o{ Role : UserRole
+    Role }o--o{ Permission : RolePermission
+    User ||--o{ Session : has
+    User }o--o| Area : "default"
+    User }o--o| Warehouse : "default"
+
+    Ticket }o--|| User : requester
+    Ticket }o--o| User : assignee
+    Ticket }o--o| Client : affects
+    Ticket }o--o| Integration : relates
+    Ticket }o--o| Problem : "linked to"
+    Ticket ||--o{ TicketComment : has
+    Ticket ||--o{ TimeEntry : has
+
+    Improvement }o--o{ Ticket : ImprovementTicket
+    Improvement }o--o{ Problem : ImprovementProblem
+    Improvement }o--o{ Client : ImprovementClient
+    Improvement }o--o{ Integration : ImprovementIntegration
+    Improvement }o--o| Provider : involves
+    Improvement ||--o{ ImprovementComment : has
+
+    Client ||--o{ ClientContact : has
+    Client }o--o{ Warehouse : ClientWarehouse
+    Client ||--o{ Integration : has
+    Integration ||--o{ IntegrationQuote : has
+    IntegrationQuote }o--|| Provider : from
+    Integration ||--o{ IntegrationRevision : "how-it-works history"
+    Integration }o--o{ Ticket : IntegrationTicket
+
+    Article ||--o{ ArticleVersion : has
+    Document ||--o{ DocumentVersion : has
+    Document ||--o{ DocumentLink : "linked to"
+    ContentChunk }o--|| ArticleVersion : "from (or)"
+    ContentChunk }o--|| DocumentVersion : "from (or)"
+```
+
+## Identidad y seguridad
+
+| Entidad                      | Campos principales                                                                                                                                                                                                                                                                                  | Notas                                                                                                                                                                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `User`                       | email (único, se guarda en minúsculas), fullName, passwordHash, mustChangePassword, passwordChangedAt, status (`ACTIVE`\|`DISABLED`), defaultAreaId, defaultWarehouseId, mfaSecretEnc, mfaPendingSecretEnc, mfaEnabledAt, mfaLastUsedStep, failedLoginCount, lockedUntil, lastLoginAt, anonymizedAt | Secretos TOTP cifrados con AES-256-GCM (clave por env). `mfaLastUsedStep` impide reutilizar un código. Alta por Admin con contraseña temporal (`mustChangePassword`). SSO futuro: `externalIdentity` opcional. |
+| `Role`                       | key, name, description, isSystem                                                                                                                                                                                                                                                                    | Admin, IT, User sembrados como `isSystem`.                                                                                                                                                                     |
+| `Permission`                 | key (ej. `ticket.manage`), description                                                                                                                                                                                                                                                              | Sembrados por código; no editables desde la UI.                                                                                                                                                                |
+| `RolePermission`, `UserRole` | —                                                                                                                                                                                                                                                                                                   | N:M.                                                                                                                                                                                                           |
+| `Session`                    | tokenHash, userId, mfaVerified, createdAt, lastSeenAt, idleExpiresAt, expiresAt, revokedAt, ip, userAgent                                                                                                                                                                                           | Se guarda el SHA-256 del token; la cookie lleva el valor opaco.                                                                                                                                                |
+| `MfaRecoveryCode`            | userId, codeHash, usedAt                                                                                                                                                                                                                                                                            | 10 códigos por usuario.                                                                                                                                                                                        |
+| `AuditLog`                   | seq (bigserial), occurredAt, actorId, action, entityType, entityId, ip, metadata (JSON sin datos sensibles), prevHash, hash                                                                                                                                                                         | Append-only, ver [ADR 0008](adr/0008-immutable-audit-log.md).                                                                                                                                                  |
+
+## Configuración y catálogos
+
+| Entidad         | Campos                                                                                                                |
+| --------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `SlaPolicy`     | ticketType, priority, firstResponseMinutes, resolutionMinutes (nullable)                                              |
+| `BusinessHours` | weekday, startTime, endTime, timezone (`America/Argentina/Buenos_Aires`)                                              |
+| `Holiday`       | date, name                                                                                                            |
+| `Setting`       | key, value (JSON): `autoClose` `{enabled:false, businessDays:5}`, `email` `{enabled:false, ...}`, límites de archivos |
+| `Warehouse`     | name (Garín, Pacheco), active                                                                                         |
+| `Area`          | name, active                                                                                                          |
+| `Provider`      | name (Interno, Molipa, SGL, TYT…), active                                                                             |
+
+Valores iniciales de `SlaPolicy`:
+
+| Tipo                                        | Prioridad    | 1ª respuesta   | Resolución     |
+| ------------------------------------------- | ------------ | -------------- | -------------- |
+| Problema / Pedido                           | Crítica      | 30 min         | 4 h hábiles    |
+| Problema / Pedido                           | Alta         | 2 h            | 1 día hábil    |
+| Problema / Pedido                           | Media        | 4 h            | 3 días hábiles |
+| Problema / Pedido                           | Baja         | 1 día hábil    | 5 días hábiles |
+| Propuesta de mejora / Pedido de integración | (cualquiera) | 2 días hábiles | —              |
+
+## Tickets
+
+| Entidad          | Campos                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Ticket`         | number (secuencia → `TLI-000123`), type, category, subject, description (HTML sanitizado), requesterId, assigneeId, clientId, warehouseId, areaId, userUrgency, priority, priorityIsProvisional, status, channel (`WEB`; a futuro `EMAIL`, `CHATBOT`), problemId, integrationId, firstResponseDueAt, resolutionDueAt, firstRespondedAt, slaPausedAt, slaPausedMinutes, slaFirstResponseState, slaResolutionState, resolutionCause, resolutionSolution, resolvedAt, closedAt, closeReason, extraFields (JSON: respuestas específicas del tipo), searchVector |
+| `TicketComment`  | ticketId, authorId, body, visibility (`PUBLIC`\|`INTERNAL`), source (`WEB`; a futuro `EMAIL`, `CHATBOT`, `SYSTEM`)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `TimeEntry`      | ticketId, userId, minutes, workDate, note                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `ActivityEvent`  | entityType, entityId, actorId, kind (`CREATED`, `STATUS_CHANGED`, `FIELD_CHANGED`, `LINKED`…), field, oldValue, newValue, occurredAt                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `Notification`   | userId, kind, entityType, entityId, title, readAt                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `Attachment`     | storageKey, originalName, mimeType, sizeBytes, sha256, scanStatus (`PENDING_SCAN`\|`CLEAN`\|`INFECTED`\|`ERROR`), uploadedById                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `AttachmentLink` | attachmentId, entityType (`TICKET`, `TICKET_COMMENT`, `IMPROVEMENT`, `PROBLEM`…), entityId                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+
+`extraFields` guarda las preguntas que cambian según tipo (ej. propuesta: proceso actual, frecuencia, tiempo que lleva, beneficio esperado; integración: proceso, sentido, formato, volumen, fecha deseada). Se valida con un schema zod por tipo.
+
+### Enums
+
+- `TicketType`: `INCIDENT` (Reportar un problema), `REQUEST` (Pedir algo), `IMPROVEMENT_PROPOSAL` (Proponer mejora o automatización), `INTEGRATION_REQUEST` (Pedir una integración)
+- `TicketCategory`: `WMS`, `TMS`, `INTEGRATION`, `ACCESS`, `HARDWARE`, `NETWORK`, `OTHER`
+- `Priority` / `Urgency`: `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`
+- `SlaState`: `ON_TRACK`, `AT_RISK`, `BREACHED`, `MET`, `STOPPED`
+
+### Estados del ticket
+
+```mermaid
+stateDiagram-v2
+    [*] --> NEW
+    NEW --> ASSIGNED
+    ASSIGNED --> IN_PROGRESS
+    IN_PROGRESS --> WAITING_USER
+    IN_PROGRESS --> WAITING_VENDOR
+    WAITING_USER --> IN_PROGRESS
+    WAITING_VENDOR --> IN_PROGRESS
+    IN_PROGRESS --> RESOLVED
+    RESOLVED --> IN_PROGRESS : usuario reabre
+    RESOLVED --> CLOSED : manual o cierre automático (deshabilitado)
+    NEW --> DERIVED_TO_IMPROVEMENT
+    ASSIGNED --> DERIVED_TO_IMPROVEMENT
+    IN_PROGRESS --> DERIVED_TO_IMPROVEMENT
+    NEW --> DERIVED_TO_INTEGRATION
+    ASSIGNED --> DERIVED_TO_INTEGRATION
+    IN_PROGRESS --> DERIVED_TO_INTEGRATION
+    DERIVED_TO_IMPROVEMENT --> CLOSED : mejora implementada o descartada
+    DERIVED_TO_INTEGRATION --> CLOSED : integración finalizada o no realizada
+```
+
+Reloj de SLA: pausado en `WAITING_USER` y `WAITING_VENDOR`; detenido (`STOPPED`) en los estados derivados.
+
+## Problemas
+
+| Entidad   | Campos                                                                                                                                                                                              |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Problem` | code (`PRB-0001`), title, description, category, rootCause, workaround, permanentSolution, status (`OPEN`\|`INVESTIGATING`\|`ROOT_CAUSE_IDENTIFIED`\|`RESOLVED`), ownerId, resolvedAt, searchVector |
+
+Un ticket pertenece como máximo a un problema (`Ticket.problemId`).
+
+## Mejoras
+
+| Entidad                                                                                  | Campos                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Improvement`                                                                            | code (`MEJ-0001`), title, system (`WMS`\|`TMS`\|`OTHER`), requestingAreaId, currentSituation, proposal, expectedImpact, impact (1–3), effort (1–3), priority (derivada de impacto × esfuerzo, ajustable), ownerId, providerId, estimatedCost, actualCost, currency, estimatedHours, actualHours, startDate, targetDate, completedAt, status, closingMessage |
+| `ImprovementTicket`, `ImprovementProblem`, `ImprovementClient`, `ImprovementIntegration` | N:M                                                                                                                                                                                                                                                                                                                                                         |
+| `ImprovementComment`                                                                     | improvementId, authorId, body (siempre interno)                                                                                                                                                                                                                                                                                                             |
+
+Estados: `IDEA` → `ANALYSIS` → `APPROVED` → `IN_DEVELOPMENT` → `TESTING` → `IMPLEMENTED` \| `DISCARDED`. Al pasar a un estado final se exige `closingMessage`, que se publica como comentario público en todos los tickets vinculados al cerrarlos.
+
+## Clientes e integraciones
+
+| Entidad               | Campos                                                                                                                                                                                                                                                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Client`              | legalName, cuit (único, validado), shortName, status (`ACTIVE`\|`ONBOARDING`\|`INACTIVE`), notes                                                                                                                                                                                                                                                  |
+| `ClientWarehouse`     | clientId, warehouseId                                                                                                                                                                                                                                                                                                                             |
+| `ClientContact`       | clientId, kind (`COMMERCIAL`\|`SYSTEMS`\|`OTHER`), name, email, phone, notes                                                                                                                                                                                                                                                                      |
+| `Integration`         | clientId, name, process, system (`WMS`\|`TMS`), direction (`INBOUND`\|`OUTBOUND`), channel, format, frequency, location (carpeta/endpoint), requiresDevelopment, status, notDoneReason, notDoneNotes, howItWorks (HTML sanitizado), estimatedHours, actualHours, actualCost, currency, startDate, targetDate, goLiveDate, ownerId, originTicketId |
+| `IntegrationRevision` | integrationId, howItWorks, authorId, createdAt — historial de "Cómo funciona"                                                                                                                                                                                                                                                                     |
+| `IntegrationQuote`    | integrationId, providerId, amount, currency, estimatedHours, quotedAt, notes, isSelected, attachmentId                                                                                                                                                                                                                                            |
+| `IntegrationTicket`   | N:M para tickets relacionados (además del ticket de origen)                                                                                                                                                                                                                                                                                       |
+
+### Enums
+
+- `IntegrationProcess`: `INBOUND_ORDERS`, `OUTBOUND_ORDERS`, `STOCK`, `DELIVERY_NOTES`, `CONFIRMATIONS`, `TRACKING`, `LABELS`, `OTHER`
+- `IntegrationChannel`: `FTP_SFTP`, `NETWORK_FOLDER`, `EMAIL`, `API`, `EDI`, `MANUAL`
+- `IntegrationFormat`: `CSV`, `FIXED_WIDTH_TXT`, `XML`, `JSON`, `EXCEL`
+- `NotDoneReason`: `CLIENT_REJECTED_COST`, `TML_REJECTED_COST`, `OTHER`
+
+Estados:
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING_SURVEY : Pendiente de relevar
+    PENDING_SURVEY --> PENDING_QUOTE : Pendiente de cotizar
+    PENDING_QUOTE --> QUOTED : Cotizada
+    QUOTED --> IN_DEVELOPMENT : En desarrollo
+    IN_DEVELOPMENT --> COMPLETED : Finalizada
+    PENDING_SURVEY --> NOT_DONE
+    PENDING_QUOTE --> NOT_DONE
+    QUOTED --> NOT_DONE
+    IN_DEVELOPMENT --> NOT_DONE
+    NOT_DONE : No realizada (con motivo)
+```
+
+El costo estimado de la integración es el de la cotización marcada `isSelected`. "Integraciones pendientes" = estado distinto de `COMPLETED` y `NOT_DONE`.
+
+Plantilla inicial de "Cómo funciona": Flujo · Origen y destino · Archivo · Validaciones y errores · Monitoreo · Contactos.
+
+## Conocimiento y documentos
+
+| Entidad                            | Campos                                                                                                                                                                                                                                                   |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Article`                          | code, title, category (`WMS`\|`TMS`\|`INTEGRATIONS`\|`PROCEDURES`\|`FREQUENT_ERRORS`), template (`FREE`\|`ERROR_SHEET`), visibility (`INTERNAL`\|`PUBLIC`), status (`DRAFT`\|`PUBLISHED`\|`ARCHIVED`), currentVersionId, sourceTicketId, sourceProblemId |
+| `ArticleVersion`                   | articleId, version, title, body (HTML), errorSymptom, errorCause, errorSolution, errorSteps, authorId, createdAt                                                                                                                                         |
+| `Document`                         | title, description, system, category, visibility, currentVersionId, authorId                                                                                                                                                                             |
+| `DocumentVersion`                  | documentId, version, attachmentId, extractionStatus (`PENDING`\|`DONE`\|`FAILED`), ocrUsed, pageCount, uploadedById                                                                                                                                      |
+| `DocumentLink`                     | documentId, entityType (`CLIENT`\|`INTEGRATION`\|`IMPROVEMENT`\|`ARTICLE`), entityId, linkType (`SPECIFICATION`\|`LAYOUT`\|`SAMPLE_FILE`\|`MINUTES`\|`QUOTE`\|`MANUAL`\|`OTHER`)                                                                         |
+| `Tag`, `ArticleTag`, `DocumentTag` | etiquetas N:M                                                                                                                                                                                                                                            |
+| `ContentChunk`                     | sourceType (`ARTICLE`\|`DOCUMENT`\|`INTEGRATION`), articleVersionId \| documentVersionId \| integrationId, pageNumber, ordinal, text, visibility, contentHash, tokenCount, searchVector                                                                  |
+| `ImportJob`                        | kind (`F50_CLIENTS`\|`BULK_DOCUMENTS`), status, createdById, totalItems, okItems, errorItems, report (JSON)                                                                                                                                              |
+
+Los fragmentos se reemplazan completos por versión (borrar + insertar en transacción). Ver [ADR 0011](adr/0011-ai-readiness-chunks.md).
+
+## Índices relevantes
+
+- `Ticket(status, assigneeId)`, `Ticket(requesterId, createdAt)`, `Ticket(resolutionDueAt) WHERE status IN (...)`.
+- GIN sobre `searchVector` en `Ticket`, `Problem`, `ContentChunk`.
+- GIN `gin_trgm_ops` sobre `Ticket.subject` y `Problem.title`.
+- `AuditLog(entityType, entityId)`, `AuditLog(actorId, occurredAt)`.

@@ -1,0 +1,23 @@
+# ADR 0005 — Búsqueda full-text y similitud en PostgreSQL
+
+- **Estado:** Aceptado
+- **Fecha:** 2026-10-24
+
+## Contexto
+
+Se necesita: búsqueda en español sobre tickets, problemas, artículos y contenido de documentos (con página); sugerencia de tickets/problemas similares; sugerencia de artículos públicos al cargar un ticket. Volumen chico (20 usuarios, miles de tickets, cientos de documentos).
+
+## Decisión
+
+- PostgreSQL nativo, sin motor externo (Elasticsearch/Meilisearch no se justifican a este volumen).
+- Extensiones: `unaccent`, `pg_trgm`.
+- Configuración de texto propia `tli_spanish` = `spanish` + `unaccent`, creada en migración SQL.
+- Columnas `searchVector tsvector` generadas (`GENERATED ALWAYS AS ... STORED`) con pesos (título A, cuerpo B), índice GIN.
+- Similitud: combinación de `ts_rank_cd` y `similarity()` de trigramas sobre el asunto/título.
+- Prisma no soporta `tsvector`: la columna se declara como `Unsupported("tsvector")` y las consultas de búsqueda se escriben con `$queryRaw` tipado, encapsuladas en un repositorio por dominio.
+- Los resultados de documentos se buscan sobre `ContentChunk`, que tiene `pageNumber`, para linkear a la página del PDF.
+- Toda búsqueda filtra por visibilidad y permisos del actor **dentro de la consulta**.
+
+## Consecuencias
+
+- Menos infraestructura. Las migraciones con SQL manual deben quedar documentadas y testeadas.

@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DATABASE_URL: postgresql://tli_app:tli_app_dev@localhost:5432/tli?schema=public
+  DATABASE_MIGRATION_URL: postgresql://tli:tli_dev@localhost:5432/tli?schema=public
+  APP_ORIGIN: http://localhost:5173
+  COOKIE_SECURE: 'false'
+  NODE_ENV: test
+  LOG_LEVEL: warn
+  # Clave solo para CI.
+  MFA_ENCRYPTION_KEY: Y2ktb25seS1rZXktMzItYnl0ZXMtbG9uZy0xMjM0NTY=
+
+jobs:
+  quality:
+    name: Lint, typecheck, unit tests, build y audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @tli/shared --filter @tli/db run build
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Auditoría de dependencias
+        run: pnpm audit --prod --audit-level high
+
+  e2e:
+    name: Tests e2e (API + UI)
+    runs-on: ubuntu-latest
+    needs: quality
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: tli
+          POSTGRES_USER: tli
+          POSTGRES_PASSWORD: tli_dev
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U tli -d tli" --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Rol de aplicación con mínimo privilegio
+        run: PGPASSWORD=tli_dev psql -h localhost -U tli -d tli -f docker/postgres/init/01-roles.sql
+      - run: pnpm --filter @tli/shared --filter @tli/db run build
+      - run: pnpm --filter @tli/db exec prisma migrate deploy
+      - run: pnpm --filter @tli/db exec tsx src/seed/dev.ts
+        env:
+          NODE_ENV: development
+      - name: Tests e2e de la API
+        run: pnpm --filter @tli/api run test:e2e
+      - run: pnpm --filter @tli/api --filter @tli/web run build
+      - run: pnpm --filter @tli/web exec playwright install --with-deps chromium
+      - name: Tests e2e de la interfaz
+        run: pnpm --filter @tli/web run test:ui
+        env:
+          NODE_ENV: production
+          CI: 'true'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7

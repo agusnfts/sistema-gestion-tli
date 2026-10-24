@@ -1,0 +1,163 @@
+// Schema de datos del Sistema de Gestión TLI. Ver docs/data-model.md.
+// Fase 1: identidad, sesiones, RBAC, auditoría y catálogos.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_MIGRATION_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+model User {
+  id                 String     @id @default(uuid()) @db.Uuid
+  // Se guarda siempre en minúsculas.
+  email              String     @unique
+  fullName           String
+  passwordHash       String
+  mustChangePassword Boolean    @default(true)
+  passwordChangedAt  DateTime?
+  status             UserStatus @default(ACTIVE)
+  defaultAreaId      String?    @db.Uuid
+  defaultWarehouseId String?    @db.Uuid
+  // Secretos TOTP cifrados con AES-256-GCM (MFA_ENCRYPTION_KEY).
+  mfaSecretEnc       String?
+  mfaPendingSecretEnc String?
+  mfaEnabledAt       DateTime?
+  // Último time-step TOTP aceptado: impide reutilizar un código (ASVS 2.8.4).
+  mfaLastUsedStep    Int?
+  failedLoginCount   Int        @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  anonymizedAt       DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  defaultArea      Area?             @relation(fields: [defaultAreaId], references: [id])
+  defaultWarehouse Warehouse?        @relation(fields: [defaultWarehouseId], references: [id])
+  roles            UserRole[]
+  sessions         Session[]
+  recoveryCodes    MfaRecoveryCode[]
+  auditEntries     AuditLog[]
+
+  @@index([status])
+}
+
+model Role {
+  id          String           @id @default(uuid()) @db.Uuid
+  key         String           @unique
+  name        String
+  description String           @default("")
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  permissions RolePermission[]
+  users       UserRole[]
+}
+
+model Permission {
+  // Clave estable, ej. "ticket.manage". Se siembra desde @tli/shared.
+  key         String           @id
+  description String
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId        String     @db.Uuid
+  permissionKey String
+  role          Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission    Permission @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+
+  @@id([roleId, permissionKey])
+}
+
+model UserRole {
+  userId String @db.Uuid
+  roleId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+}
+
+model Session {
+  id          String    @id @default(uuid()) @db.Uuid
+  // SHA-256 del token opaco que viaja en la cookie.
+  tokenHash   String    @unique
+  userId      String    @db.Uuid
+  mfaVerified Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  idleExpiresAt DateTime
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  ip          String?
+  userAgent   String?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model MfaRecoveryCode {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Append-only: un trigger impide UPDATE/DELETE/TRUNCATE. Ver ADR 0008.
+model AuditLog {
+  seq        BigInt   @id @default(autoincrement())
+  occurredAt DateTime @default(now())
+  actorId    String?  @db.Uuid
+  action     String
+  entityType String?
+  entityId   String?
+  ip         String?
+  metadata   Json     @default("{}")
+  prevHash   String
+  hash       String
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([entityType, entityId])
+  @@index([actorId, occurredAt])
+  @@index([action, occurredAt])
+}
+
+model Area {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+}
+
+model Warehouse {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+}
+
+model Provider {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
