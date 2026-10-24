@@ -1,6 +1,0 @@
-<!-- Logo provisorio. Reemplazar este archivo por el logo oficial de TML (SVG, alto recomendado 32 px). -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 32" role="img" aria-label="TML Logística">
-  <rect width="96" height="32" rx="4" fill="#0D3B70"/>
-  <text x="42" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">TML</text>
-  <rect x="74" y="8" width="4" height="16" fill="#6BC047"/>
-</svg>

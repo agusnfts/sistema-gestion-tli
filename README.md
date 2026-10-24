@@ -79,6 +79,16 @@ Los tests e2e de la API pueden usar una base aparte definiendo `TEST_DATABASE_UR
 - **Usuario de base con mínimo privilegio** (`tli_app`, solo DML). Las migraciones corren con el owner.
 - Logs estructurados (pino) sin cookies, tokens ni credenciales.
 
+## Diseño
+
+La estética sigue el brochure institucional de TML 2026:
+- **Logo:** versiones color y blanca, más el isotipo como favicon. Están en `apps/web/public`.
+- **Tipografía:** Poppins, servida desde el propio sistema con `@fontsource`, sin pedidos a Google.
+- **Colores:** azul marino `#0D3B70`, azul de títulos `#005CB9`, verde del isotipo `#69BF4A` y grises cálidos.
+- **Pantallas de ingreso:** fondo azul con las formas geométricas de la tapa del brochure.
+
+Los colores se definen como design tokens en [`apps/web/src/styles.css`](apps/web/src/styles.css).
+
 ## Despliegue
 
 Se documenta en la Fase 8 (`docs/deploy.md`): Docker Compose de producción, Caddy con TLS, hardening del VPS y backups cifrados.

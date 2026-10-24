@@ -45,7 +45,9 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
         className={({ isActive }) =>
           cn(
             'flex items-center gap-2 rounded-md px-3 py-2 text-sm',
-            isActive ? 'bg-primary-soft font-medium text-primary' : 'text-fg hover:bg-bg',
+            isActive
+              ? 'bg-primary-soft font-medium text-primary shadow-[inset_3px_0_0_var(--color-accent)]'
+              : 'text-fg hover:bg-bg',
           )
         }
       >
@@ -107,8 +109,8 @@ export function AppLayout() {
           </RadixDialog.Portal>
         </RadixDialog.Root>
 
-        <Logo />
-        <span className="hidden text-sm font-semibold text-primary sm:inline">
+        <Logo className="h-8 w-auto" />
+        <span className="hidden border-l border-border pl-3 text-sm font-semibold text-brand sm:inline">
           Sistema de Gestión TLI
         </span>
 
