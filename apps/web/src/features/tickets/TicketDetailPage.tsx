@@ -223,7 +223,8 @@ export function TicketDetailPage() {
           )}
         </div>
 
-        <aside className="space-y-4">
+        {/* En el celular el panel (estado, SLA, asignación) va arriba de la conversación. */}
+        <aside className="order-first space-y-4 lg:order-none">
           {t.canManage ? (
             <ManagePanel ticket={t} onSaved={setData} />
           ) : (
