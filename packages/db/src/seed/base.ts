@@ -13,6 +13,15 @@ import {
 
 const INITIAL_WAREHOUSES = ['Garín', 'Pacheco'];
 const INITIAL_PROVIDERS = ['Interno', 'Molipa', 'SGL', 'TYT'];
+// Plataformas externas habituales; el catálogo se edita desde Administración.
+const INITIAL_PLATFORMS = [
+  { name: 'Mercado Libre', category: 'ECOMMERCE' },
+  { name: 'Tienda Nube', category: 'ECOMMERCE' },
+  { name: 'Shopify', category: 'ECOMMERCE' },
+  { name: 'Oracle', category: 'ERP' },
+  { name: 'Odoo', category: 'ERP' },
+  { name: 'SAP', category: 'ERP' },
+] as const;
 
 // Feriados nacionales 2026 (inamovibles y trasladables ya trasladados). Los días no laborables
 // "puente" se definen por decreto cada año: cargarlos desde Configuración. Verificar contra el
@@ -75,6 +84,9 @@ export async function seedBase(prisma: PrismaClient): Promise<void> {
   }
   for (const name of INITIAL_PROVIDERS) {
     await prisma.provider.upsert({ where: { name }, create: { name }, update: {} });
+  }
+  for (const p of INITIAL_PLATFORMS) {
+    await prisma.platform.upsert({ where: { name: p.name }, create: p, update: {} });
   }
 
   for (const [key, value] of Object.entries(INITIAL_SETTINGS)) {

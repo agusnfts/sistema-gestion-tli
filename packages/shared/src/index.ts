@@ -18,3 +18,6 @@ export * from './schemas/settings';
 export * from './schemas/problems';
 export * from './schemas/improvements';
 export * from './schemas/work-log';
+export * from './schemas/clients';
+export * from './schemas/integrations';
+export * from './schemas/documents';

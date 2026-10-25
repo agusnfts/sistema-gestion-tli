@@ -6,15 +6,16 @@ La documentación de diseño está en [`docs/`](docs/README.md) (arquitectura, m
 
 ## Estado
 
-| Fase | Contenido                                                                                | Estado    |
-| ---- | ---------------------------------------------------------------------------------------- | --------- |
-| 0    | Diseño                                                                                   | ✅        |
-| 1    | Base: monorepo, auth + MFA, usuarios, roles, auditoría, layout, CI                       | ✅        |
-| 2a   | Ticketera: formulario guiado, estados, SLA, notificaciones, Mis tickets, bandeja de IT   | ✅        |
-| 2b   | Adjuntos con antivirus, worker (BullMQ), mail opcional                                   | ✅        |
-| 3    | Problemas: agrupar tickets por causa raíz, resolución en bloque, sugerencia de similares | ✅        |
-| 4    | Mejoras: kanban, derivación de tickets y problemas, cierre en bloque con mensaje         | ✅        |
-| 5–8  | Clientes/integraciones, conocimiento, dashboard, producción                              | Pendiente |
+| Fase | Contenido                                                                                    | Estado    |
+| ---- | -------------------------------------------------------------------------------------------- | --------- |
+| 0    | Diseño                                                                                       | ✅        |
+| 1    | Base: monorepo, auth + MFA, usuarios, roles, auditoría, layout, CI                           | ✅        |
+| 2a   | Ticketera: formulario guiado, estados, SLA, notificaciones, Mis tickets, bandeja de IT       | ✅        |
+| 2b   | Adjuntos con antivirus, worker (BullMQ), mail opcional                                       | ✅        |
+| 3    | Problemas: agrupar tickets por causa raíz, resolución en bloque, sugerencia de similares     | ✅        |
+| 4    | Mejoras: kanban, derivación de tickets y problemas, cierre en bloque con mensaje             | ✅        |
+| 5    | Clientes e integraciones: maestro, importación del F50, cotizaciones, documentos versionados | ✅        |
+| 6–8  | Conocimiento, dashboard, producción                                                          | Pendiente |
 
 ## Stack
 

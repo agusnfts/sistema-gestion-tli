@@ -367,18 +367,30 @@ function TicketForm({
             <Field label={counterpartLabel} required error={extraErrors?.counterpartName?.message}>
               {(p) => <Input {...p} {...reg('extra.counterpartName')} />}
             </Field>
-            <Field label="Proceso" required error={extraErrors?.process?.message}>
-              {(p) => (
-                <Select {...p} {...reg('extra.process')}>
-                  <option value="">Elegí una opción</option>
-                  {INTEGRATION_PROCESSES.map((x) => (
-                    <option key={x} value={x}>
-                      {INTEGRATION_PROCESS_LABELS[x]}
-                    </option>
-                  ))}
-                </Select>
+            <fieldset aria-invalid={!!extraErrors?.processes}>
+              <legend className="mb-1 text-sm font-medium">
+                Qué datos se intercambian <span className="text-danger">*</span>
+              </legend>
+              <p className="mb-2 text-xs text-muted">Marcá todos los que correspondan.</p>
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                {INTEGRATION_PROCESSES.map((x) => (
+                  <label key={x} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      value={x}
+                      className="size-4 accent-primary"
+                      {...reg('extra.processes')}
+                    />
+                    {INTEGRATION_PROCESS_LABELS[x]}
+                  </label>
+                ))}
+              </div>
+              {extraErrors?.processes?.message && (
+                <p role="alert" className="mt-1 text-xs text-danger">
+                  {extraErrors.processes.message}
+                </p>
               )}
-            </Field>
+            </fieldset>
             <Field label="Sentido" required error={extraErrors?.direction?.message}>
               {(p) => (
                 <Select {...p} {...reg('extra.direction')}>

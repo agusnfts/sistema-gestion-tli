@@ -29,6 +29,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { PriorityLabel, SlaBadge, StatusBadge } from './ui';
 import { TicketProblemPanel } from '@/features/problems/TicketProblemPanel';
 import { TicketImprovementPanel } from '@/features/improvements/TicketImprovementPanel';
+import { TicketIntegrationPanel } from '@/features/integrations/TicketIntegrationPanel';
 import { useHasPermission } from '@/lib/auth';
 import {
   AttachmentList,
@@ -52,6 +53,7 @@ const EXTRA_LABELS: Record<string, string> = {
   counterpartName: 'Nombre',
   clientName: 'Cliente',
   process: 'Proceso',
+  processes: 'Procesos',
   direction: 'Sentido',
   formatOrChannel: 'Formato o canal',
   volume: 'Volumen',
@@ -59,13 +61,14 @@ const EXTRA_LABELS: Record<string, string> = {
 };
 
 function extraValue(key: string, value: unknown): string {
+  if (Array.isArray(value)) return value.map((x) => extraValue(key, x)).join(', ');
   const v = String(value);
   if (key === 'frequency') return FREQUENCY_LABELS[v as keyof typeof FREQUENCY_LABELS] ?? v;
   if (key === 'accessAction')
     return ACCESS_ACTION_LABELS[v as keyof typeof ACCESS_ACTION_LABELS] ?? v;
   if (key === 'counterpartType')
     return INTEGRATION_COUNTERPART_LABELS[v as keyof typeof INTEGRATION_COUNTERPART_LABELS] ?? v;
-  if (key === 'process')
+  if (key === 'process' || key === 'processes')
     return INTEGRATION_PROCESS_LABELS[v as keyof typeof INTEGRATION_PROCESS_LABELS] ?? v;
   if (key === 'direction')
     return INTEGRATION_DIRECTION_LABELS[v as keyof typeof INTEGRATION_DIRECTION_LABELS] ?? v;
@@ -247,6 +250,7 @@ export function TicketDetailPage() {
           ) : (
             <RequesterPanel ticket={t} />
           )}
+          {t.canManage && can('integration.read') && <TicketIntegrationPanel ticket={t} />}
           {t.canManage && can('improvement.read') && <TicketImprovementPanel ticket={t} />}
           {t.canManage && can('problem.read') && <TicketProblemPanel ticket={t} />}
           {t.timeEntries && <TimePanel ticket={t} onSaved={setData} />}

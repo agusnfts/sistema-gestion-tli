@@ -28,14 +28,38 @@ const ORPHAN_TTL_MS = 24 * 3600_000;
 export type LinkTarget =
   | { ticketId: string; commentId?: string }
   | { problemActionId: string }
-  | { improvementCommentId: string };
+  | { improvementCommentId: string }
+  | { integrationActionId: string }
+  | { integrationQuoteId: string }
+  | { documentVersionId: string };
 
 const UNLINKED = {
   ticketId: null,
   commentId: null,
   problemActionId: null,
   improvementCommentId: null,
+  integrationActionId: null,
+  integrationQuoteId: null,
+  documentVersionId: null,
 } satisfies Prisma.AttachmentWhereInput;
+
+/**
+ * Un documento se ve si es público, si es interno y el actor ve la biblioteca interna, o si
+ * está vinculado a algo que el actor puede ver (una integración o un cliente).
+ */
+function canSeeDocument(
+  doc: { visibility: 'PUBLIC' | 'INTERNAL'; links: { entityType: string }[] },
+  actor: AuthContext,
+): boolean {
+  const p = actor.permissions;
+  if (doc.visibility === 'PUBLIC' && p.has('kb.read.public')) return true;
+  if (p.has('kb.read.internal')) return true;
+  return doc.links.some(
+    (l) =>
+      (l.entityType === 'INTEGRATION' && p.has('integration.read')) ||
+      (l.entityType === 'CLIENT' && p.has('client.read')),
+  );
+}
 
 export function toAttachmentInfo(
   a: Pick<Attachment, 'id' | 'originalName' | 'sizeBytes' | 'mimeType' | 'scanStatus'>,
@@ -183,6 +207,11 @@ export class FilesService implements OnModuleInit {
       include: {
         ticket: { select: { requesterId: true } },
         comment: { select: { visibility: true } },
+        documentVersion: {
+          select: {
+            document: { select: { visibility: true, links: { select: { entityType: true } } } },
+          },
+        },
       },
     });
     if (!a) throw new NotFoundException('Adjunto inexistente');
@@ -201,7 +230,11 @@ export class FilesService implements OnModuleInit {
         ? actor.permissions.has('problem.read')
         : a.improvementCommentId
           ? actor.permissions.has('improvement.read')
-          : isUploader;
+          : a.integrationActionId || a.integrationQuoteId
+            ? actor.permissions.has('integration.read')
+            : a.documentVersion
+              ? canSeeDocument(a.documentVersion.document, actor)
+              : isUploader;
     if (!allowed) throw new NotFoundException('Adjunto inexistente');
     if (a.scanStatus === 'PENDING_SCAN')
       throw new ConflictException('El archivo todavía se está analizando');

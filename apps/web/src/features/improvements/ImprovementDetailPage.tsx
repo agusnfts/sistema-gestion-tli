@@ -28,6 +28,7 @@ import { Alert, Card, Spinner } from '@/components/ui/misc';
 import { useCatalog } from '@/features/admin/api-hooks';
 import { AddTicketsCard } from '@/features/tickets/AddTicketsCard';
 import { WorkLogCard } from '@/features/work-log/WorkLogCard';
+import { useClientOptions } from '@/features/integrations/components';
 import { StatusBadge } from '@/features/tickets/ui';
 import { errorText, ProblemStatusBadge } from '@/features/problems/components';
 import {
@@ -380,6 +381,10 @@ export function ImprovementDetailPage() {
             linking={linkProblem.isPending}
           />
 
+          {can('client.read') && (
+            <ClientsCard improvement={i} editable={canManage} onSaved={refresh} />
+          )}
+
           <WorkLogCard<ImprovementDetail>
             entries={i.actions}
             endpoint={`/improvements/${id}/actions`}
@@ -712,6 +717,101 @@ function ProblemsCard({
             }}
           >
             Vincular
+          </Button>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** Clientes a los que apunta la mejora: la mejora aparece en la ficha de cada uno. */
+function ClientsCard({
+  improvement: i,
+  editable,
+  onSaved,
+}: {
+  improvement: ImprovementDetail;
+  editable: boolean;
+  onSaved: (d: ImprovementDetail) => void;
+}) {
+  const [clientId, setClientId] = useState('');
+  const clients = useClientOptions(editable);
+  const link = useMutation({
+    mutationFn: (id: string) =>
+      api<ImprovementDetail>(`/improvements/${i.id}/clients`, {
+        method: 'POST',
+        body: { clientIds: [id] },
+      }),
+    onSuccess: (d) => {
+      setClientId('');
+      onSaved(d);
+    },
+  });
+  const unlink = useMutation({
+    mutationFn: (id: string) =>
+      api<ImprovementDetail>(`/improvements/${i.id}/clients/${id}`, { method: 'DELETE' }),
+    onSuccess: onSaved,
+  });
+  const linked = new Set(i.clients.map((c) => c.id));
+  const error = link.error ?? unlink.error;
+
+  return (
+    <Card className="p-5">
+      <h2 className="mb-3 font-semibold">Clientes</h2>
+      {error && (
+        <div className="mb-3">
+          <Alert tone="danger">{errorText(error)}</Alert>
+        </div>
+      )}
+      {i.clients.length === 0 ? (
+        <p className="text-sm text-muted">No apunta a un cliente en particular.</p>
+      ) : (
+        <ul className="flex flex-wrap gap-2 text-sm">
+          {i.clients.map((c) => (
+            <li key={c.id} className="flex items-center gap-1 rounded-md bg-bg py-1 pl-2 pr-1">
+              <Link to={`/clientes/${c.id}`} className="hover:underline">
+                {c.shortName ?? c.legalName}
+              </Link>
+              {editable && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1"
+                  aria-label={`Quitar ${c.shortName ?? c.legalName}`}
+                  onClick={() => unlink.mutate(c.id)}
+                >
+                  <Unlink className="size-3.5" aria-hidden />
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {editable && (
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <Field label="Agregar cliente">
+              {(fp) => (
+                <Select {...fp} value={clientId} onChange={(e) => setClientId(e.target.value)}>
+                  <option value="">Elegí un cliente</option>
+                  {clients.data
+                    ?.filter((c) => !linked.has(c.id))
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.shortName ?? c.legalName}
+                      </option>
+                    ))}
+                </Select>
+              )}
+            </Field>
+          </div>
+          <Button
+            variant="secondary"
+            disabled={!clientId}
+            loading={link.isPending}
+            onClick={() => link.mutate(clientId)}
+          >
+            Agregar
           </Button>
         </div>
       )}

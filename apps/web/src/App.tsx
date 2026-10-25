@@ -23,6 +23,10 @@ import { ProblemsPage } from '@/features/problems/ProblemsPage';
 import { ProblemDetailPage } from '@/features/problems/ProblemDetailPage';
 import { ImprovementsPage } from '@/features/improvements/ImprovementsPage';
 import { ImprovementDetailPage } from '@/features/improvements/ImprovementDetailPage';
+import { ClientsPage } from '@/features/clients/ClientsPage';
+import { ClientDetailPage } from '@/features/clients/ClientDetailPage';
+import { IntegrationsPage } from '@/features/integrations/IntegrationsPage';
+import { IntegrationDetailPage } from '@/features/integrations/IntegrationDetailPage';
 import { useHasPermission } from '@/lib/auth';
 
 /** Admin e IT empiezan en Inicio; el usuario común, en "Mis tickets". */
@@ -135,6 +139,38 @@ const router = createBrowserRouter([
             element: (
               <RequirePermission permission="improvement.read">
                 <ImprovementDetailPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'clientes',
+            element: (
+              <RequirePermission permission="client.read">
+                <ClientsPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'clientes/:id',
+            element: (
+              <RequirePermission permission="client.read">
+                <ClientDetailPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'integraciones',
+            element: (
+              <RequirePermission permission="integration.read">
+                <IntegrationsPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'integraciones/:id',
+            element: (
+              <RequirePermission permission="integration.read">
+                <IntegrationDetailPage />
               </RequirePermission>
             ),
           },

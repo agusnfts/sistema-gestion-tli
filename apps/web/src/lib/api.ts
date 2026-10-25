@@ -64,10 +64,14 @@ export async function api<T>(path: string, opts: RequestOptions = {}, retried = 
 }
 
 /** Sube un archivo (multipart) a /api/attachments. */
-export async function uploadFile(file: File, retried = false): Promise<AttachmentInfo> {
-  const form = new FormData();
-  form.append('file', file);
-  const res = await fetch('/api/attachments', {
+/** POST multipart (archivos) con el token CSRF; reintenta una vez si el token venció. */
+export async function postForm<T>(
+  path: string,
+  form: FormData,
+  opts: { tooLarge?: string } = {},
+  retried = false,
+): Promise<T> {
+  const res = await fetch(`/api${path}`, {
     method: 'POST',
     headers: { 'X-CSRF-Token': await getCsrfToken(), Accept: 'application/json' },
     credentials: 'same-origin',
@@ -78,13 +82,23 @@ export async function uploadFile(file: File, retried = false): Promise<Attachmen
     const err = (data ?? {}) as Partial<ApiErrorBody> & { code?: string };
     if (res.status === 403 && err.code === 'CSRF' && !retried) {
       await getCsrfToken(true);
-      return uploadFile(file, true);
+      return postForm(path, form, opts, true);
     }
     const message =
-      res.status === 413 ? 'El archivo supera los 25 MB' : (err.message ?? 'Error al subir');
+      res.status === 413
+        ? (opts.tooLarge ?? 'El archivo es demasiado grande')
+        : (err.message ?? 'Error al subir');
     throw new ApiError(res.status, message, err.issues ?? [], err.code);
   }
-  return data as AttachmentInfo;
+  return data as T;
+}
+
+export function uploadFile(file: File): Promise<AttachmentInfo> {
+  const form = new FormData();
+  form.append('file', file);
+  return postForm<AttachmentInfo>('/attachments', form, {
+    tooLarge: 'El archivo supera los 25 MB',
+  });
 }
 
 /** Vuelca los errores de validación del servidor sobre los campos de un formulario. */

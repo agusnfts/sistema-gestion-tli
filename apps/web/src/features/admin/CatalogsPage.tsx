@@ -4,14 +4,17 @@ import { Plus } from 'lucide-react';
 import {
   CATALOG_KINDS,
   CATALOG_LABELS,
+  PLATFORM_CATEGORIES,
+  PLATFORM_CATEGORY_LABELS,
   catalogItemSchema,
+  type PlatformCategory,
   type CatalogItem,
   type CatalogKind,
 } from '@tli/shared';
 import { api, ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Field, Input } from '@/components/ui/form';
+import { Field, Input, Select } from '@/components/ui/form';
 import { Alert, Badge, PageHeader, Spinner, Table, Td, Th } from '@/components/ui/misc';
 import { Dialog } from '@/components/ui/dialog';
 import { useCatalog } from './api-hooks';
@@ -64,6 +67,7 @@ export function CatalogsPage() {
           <thead>
             <tr>
               <Th>Nombre</Th>
+              {kind === 'platforms' && <Th>Categoría</Th>}
               <Th>Estado</Th>
               <Th>
                 <span className="sr-only">Acciones</span>
@@ -74,12 +78,15 @@ export function CatalogsPage() {
             {items.data?.map((item) => (
               <tr key={item.id}>
                 <Td className="font-medium">{item.name}</Td>
+                {kind === 'platforms' && (
+                  <Td>{PLATFORM_CATEGORY_LABELS[item.category ?? 'OTHER']}</Td>
+                )}
                 <Td>
                   {item.active ? <Badge tone="success">Activo</Badge> : <Badge>Inactivo</Badge>}
                 </Td>
                 <Td className="space-x-2 text-right">
                   <Button variant="ghost" size="sm" onClick={() => setEditing(item)}>
-                    Renombrar
+                    {kind === 'platforms' ? 'Editar' : 'Renombrar'}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => toggle.mutate(item)}>
                     {item.active ? 'Desactivar' : 'Activar'}
@@ -112,12 +119,15 @@ function CatalogItemDialog({
 }) {
   const qc = useQueryClient();
   const [name, setName] = useState(item?.name ?? '');
+  const [category, setCategory] = useState<PlatformCategory>(item?.category ?? 'ECOMMERCE');
+  const isPlatform = kind === 'platforms';
+  const body = isPlatform ? { name, category } : { name };
   const [error, setError] = useState<string | null>(null);
   const save = useMutation({
     mutationFn: () =>
       item
-        ? api(`/catalogs/${kind}/${item.id}`, { method: 'PATCH', body: { name } })
-        : api(`/catalogs/${kind}`, { method: 'POST', body: { name } }),
+        ? api(`/catalogs/${kind}/${item.id}`, { method: 'PATCH', body })
+        : api(`/catalogs/${kind}`, { method: 'POST', body }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['catalogs', kind] });
       onClose();
@@ -137,7 +147,11 @@ function CatalogItemDialog({
     <Dialog
       open
       onOpenChange={(o) => !o && onClose()}
-      title={item ? `Renombrar ${label.toLowerCase()}` : `Nuevo ${label.toLowerCase()}`}
+      title={
+        item
+          ? `${isPlatform ? 'Editar' : 'Renombrar'} ${label.toLowerCase()}`
+          : `${isPlatform ? 'Nueva' : 'Nuevo'} ${label.toLowerCase()}`
+      }
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -154,6 +168,23 @@ function CatalogItemDialog({
         <Field label="Nombre" required>
           {(p) => <Input {...p} autoFocus value={name} onChange={(e) => setName(e.target.value)} />}
         </Field>
+        {isPlatform && (
+          <Field label="Categoría">
+            {(p) => (
+              <Select
+                {...p}
+                value={category}
+                onChange={(e) => setCategory(e.target.value as PlatformCategory)}
+              >
+                {PLATFORM_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {PLATFORM_CATEGORY_LABELS[c]}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        )}
       </form>
     </Dialog>
   );

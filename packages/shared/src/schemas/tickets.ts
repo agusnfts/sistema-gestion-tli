@@ -155,7 +155,12 @@ export const ticketExtraSchemas = {
       .trim()
       .min(2, 'Indicá con quién es la integración')
       .max(150),
-    process: z.enum(INTEGRATION_PROCESSES, choose),
+    // Una integración puede cubrir varios procesos (ej. pedidos de salida y stock).
+    processes: z
+      .array(z.enum(INTEGRATION_PROCESSES), { error: 'Elegí al menos un proceso' })
+      .min(1, 'Elegí al menos un proceso')
+      .max(INTEGRATION_PROCESSES.length)
+      .transform((v) => [...new Set(v)]),
     direction: z.enum(INTEGRATION_DIRECTIONS, choose),
     formatOrChannel: optionalText(300),
     volume: optionalText(300),
@@ -305,6 +310,8 @@ export type TicketListItem = {
   problem: { id: string; code: string; title: string } | null;
   /** Mejora a la que se derivó. Solo se informa a quien puede ver mejoras. */
   improvement: { id: string; code: string; title: string } | null;
+  /** Integración a la que se derivó. Solo se informa a quien puede ver integraciones. */
+  integration: { id: string; code: string; name: string } | null;
   createdAt: string;
   updatedAt: string;
   sla: { firstResponse: SlaInfo; resolution: SlaInfo };

@@ -116,6 +116,10 @@ export class ImprovementsService {
         createdBy: userRef,
         tickets: { include: { requester: userRef }, orderBy: { createdAt: 'desc' } },
         problems: { orderBy: { number: 'asc' } },
+        clients: {
+          select: { id: true, legalName: true, shortName: true },
+          orderBy: { legalName: 'asc' },
+        },
         comments: {
           include: { author: userRef, attachments: { orderBy: { createdAt: 'asc' } } },
           orderBy: { createdAt: 'asc' },
@@ -151,6 +155,7 @@ export class ImprovementsService {
         requester: t.requester,
         createdAt: t.createdAt.toISOString(),
       })),
+      clients: i.clients,
       problems: i.problems.map((p) => ({
         id: p.id,
         code: formatProblemCode(p.number),
@@ -218,7 +223,9 @@ export class ImprovementsService {
     const code = formatImprovementCode(number);
     const derived: string[] = [];
     for (const id of ticketIds) {
-      if (await this.tickets.deriveToImprovement(id, { id: improvementId, code }, actor, meta)) {
+      if (
+        await this.tickets.derive(id, { kind: 'improvement', id: improvementId, code }, actor, meta)
+      ) {
         derived.push(id);
       }
     }
@@ -418,7 +425,9 @@ export class ImprovementsService {
     let closedTickets = 0;
     if (final) {
       for (const t of i.tickets) {
-        if (await this.tickets.closeFromImprovement(t.id, input.closingMessage!, actor, meta)) {
+        if (
+          await this.tickets.closeDerived(t.id, 'improvement', input.closingMessage!, actor, meta)
+        ) {
           closedTickets++;
         }
       }
@@ -481,7 +490,7 @@ export class ImprovementsService {
     meta: RequestMeta,
   ): Promise<ImprovementDetail> {
     await this.openImprovement(id);
-    if (!(await this.tickets.returnFromImprovement(ticketId, id, actor, meta))) {
+    if (!(await this.tickets.returnDerived(ticketId, 'improvement', id, actor, meta))) {
       throw new NotFoundException('El ticket no está en esta mejora');
     }
     await this.prisma.activityEvent.create({
@@ -527,6 +536,23 @@ export class ImprovementsService {
       metadata: { problemIds: ids },
     });
     await this.derive(id, i.number, await this.ticketsToDerive([], ids), actor, meta);
+    return this.get(id);
+  }
+
+  /** Clientes a los que apunta o afecta la mejora (aparece en su ficha). */
+  async setClients(id: string, clientIds: string[], connect: boolean): Promise<ImprovementDetail> {
+    const exists = await this.prisma.improvement.count({ where: { id } });
+    if (!exists) throw new NotFoundException('Mejora inexistente');
+    if (connect) {
+      const found = await this.prisma.client.count({ where: { id: { in: clientIds } } });
+      if (found !== new Set(clientIds).size)
+        throw new BadRequestException('Algún cliente no existe');
+    }
+    const refs = clientIds.map((c) => ({ id: c }));
+    await this.prisma.improvement.update({
+      where: { id },
+      data: { clients: connect ? { connect: refs } : { disconnect: refs } },
+    });
     return this.get(id);
   }
 

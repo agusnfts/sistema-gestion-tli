@@ -3,6 +3,8 @@ import { NavLink, Outlet, useNavigate } from 'react-router';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as RadixDialog from '@radix-ui/react-dialog';
 import {
+  Building2,
+  Cable,
   ChevronDown,
   ClipboardList,
   Home,
@@ -36,6 +38,8 @@ const MAIN_NAV: NavItem[] = [
   { to: '/tickets', label: 'Tickets', icon: Inbox, permission: 'ticket.read.all' },
   { to: '/problemas', label: 'Problemas', icon: Puzzle, permission: 'problem.read' },
   { to: '/mejoras', label: 'Mejoras', icon: Lightbulb, permission: 'improvement.read' },
+  { to: '/integraciones', label: 'Integraciones', icon: Cable, permission: 'integration.read' },
+  { to: '/clientes', label: 'Clientes', icon: Building2, permission: 'client.read' },
   { to: '/mis-tickets', label: 'Mis tickets', icon: Ticket, permission: 'ticket.read.own' },
   { to: '/tickets/nuevo', label: 'Nuevo ticket', icon: PlusCircle, permission: 'ticket.create' },
 ];

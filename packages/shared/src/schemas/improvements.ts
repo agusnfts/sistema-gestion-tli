@@ -133,6 +133,11 @@ export const linkProblemsSchema = z.object({
 });
 export type LinkProblemsInput = z.infer<typeof linkProblemsSchema>;
 
+export const linkClientsSchema = z.object({
+  clientIds: z.array(uuidSchema).min(1, 'Elegí al menos un cliente').max(50),
+});
+export type LinkClientsInput = z.infer<typeof linkClientsSchema>;
+
 export const listImprovementsQuerySchema = paginationSchema.extend({
   state: z.enum(['active', 'closed', 'all']).default('active'),
   system: z.enum(IMPROVEMENT_SYSTEMS).optional(),
@@ -188,6 +193,7 @@ export type ImprovementDetail = ImprovementListItem & {
   createdBy: UserRef;
   tickets: ImprovementTicket[];
   problems: ProblemRef[];
+  clients: { id: string; legalName: string; shortName: string | null }[];
   /** Acciones y avances registrados por IT, con adjuntos. */
   actions: WorkLogEntry[];
   activity: TicketActivity[];

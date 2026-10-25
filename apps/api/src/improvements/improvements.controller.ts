@@ -14,6 +14,7 @@ import {
   addWorkLogSchema,
   changeImprovementStatusSchema,
   createImprovementSchema,
+  linkClientsSchema,
   linkProblemsSchema,
   linkTicketsSchema,
   listImprovementsQuerySchema,
@@ -21,6 +22,7 @@ import {
   type AddWorkLogInput,
   type ChangeImprovementStatusInput,
   type CreateImprovementInput,
+  type LinkClientsInput,
   type LinkProblemsInput,
   type LinkTicketsInput,
   type ListImprovementsQuery,
@@ -125,6 +127,25 @@ export class ImprovementsController {
     @ReqMeta() meta: RequestMeta,
   ) {
     return this.improvements.linkProblems(id, body.problemIds, auth, meta);
+  }
+
+  @Post(':id/clients')
+  @HttpCode(200)
+  @RequirePermission('improvement.manage')
+  linkClients(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(linkClientsSchema)) body: LinkClientsInput,
+  ) {
+    return this.improvements.setClients(id, body.clientIds, true);
+  }
+
+  @Delete(':id/clients/:clientId')
+  @RequirePermission('improvement.manage')
+  unlinkClient(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+  ) {
+    return this.improvements.setClients(id, [clientId], false);
   }
 
   @Delete(':id/problems/:problemId')

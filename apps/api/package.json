@@ -29,6 +29,7 @@
     "pino": "^9.9.0",
     "pino-http": "^10.5.0",
     "qrcode": "^1.5.4",
+    "read-excel-file": "9.3.10",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "zod": "^4.6.6"
@@ -47,6 +48,6 @@
     "supertest": "^7.1.4",
     "typescript": "^5.9.2",
     "unplugin-swc": "^1.5.7",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.12"
   }
 }

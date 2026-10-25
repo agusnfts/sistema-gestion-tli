@@ -20,6 +20,9 @@ import { FilesModule } from './files/files.module';
 import { SearchModule } from './search/similarity.service';
 import { ProblemsModule } from './problems/problems.module';
 import { ImprovementsModule } from './improvements/improvements.module';
+import { DocumentsModule } from './documents/documents.module';
+import { IntegrationsModule } from './integrations/integrations.module';
+import { ClientsModule } from './clients/clients.module';
 import { HealthController } from './health/health.controller';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 
@@ -72,6 +75,9 @@ import { HttpExceptionFilter } from './common/http-exception.filter';
     SearchModule,
     ProblemsModule,
     ImprovementsModule,
+    DocumentsModule,
+    IntegrationsModule,
+    ClientsModule,
   ],
   controllers: [HealthController],
   providers: [

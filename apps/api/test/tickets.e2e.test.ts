@@ -361,7 +361,7 @@ describe('sector e integraciones', () => {
       extra: {
         counterpartType: 'CARRIER',
         counterpartName: 'Expreso Sur',
-        process: 'DELIVERY_NOTES',
+        processes: ['DELIVERY_NOTES', 'TRACKING'],
         direction: 'OUTBOUND',
       },
     };

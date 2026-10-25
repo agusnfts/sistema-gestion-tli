@@ -10,6 +10,7 @@ import {
   fixedCategoryFor,
   isCategoryAllowed,
   formatImprovementCode,
+  formatIntegrationCode,
   formatProblemCode,
   formatTicketNumber,
   localDateKey,
@@ -55,9 +56,32 @@ const listInclude = {
   area: { select: { id: true, name: true } },
   problem: { select: { id: true, number: true, title: true } },
   improvement: { select: { id: true, number: true, title: true } },
+  integration: { select: { id: true, number: true, name: true } },
 } satisfies Prisma.TicketInclude;
 
 type TicketRow = Prisma.TicketGetPayload<{ include: typeof listInclude }>;
+
+export type DeriveKind = 'improvement' | 'integration';
+export type DeriveTarget = { kind: DeriveKind; id: string; code: string };
+
+const DERIVATIONS = {
+  improvement: {
+    status: 'DERIVED_TO_IMPROVEMENT',
+    field: 'improvementId',
+    closeReason: 'IMPROVEMENT',
+    message: (code: string) =>
+      `Tu pedido pasó a una mejora del sistema (${code}). ` +
+      'Te avisamos por acá cuando esté implementada o si se decide no hacerla.',
+  },
+  integration: {
+    status: 'DERIVED_TO_INTEGRATION',
+    field: 'integrationId',
+    closeReason: 'INTEGRATION',
+    message: (code: string) =>
+      `Tu pedido pasó a un proyecto de integración (${code}). ` +
+      'Te avisamos por acá cuando esté funcionando o si se decide no hacerla.',
+  },
+} as const;
 
 const link = (id: string) => `/tickets/${id}`;
 
@@ -98,6 +122,14 @@ export class TicketsService {
       problem:
         t.problem && actor.permissions.has('problem.read')
           ? { id: t.problem.id, code: formatProblemCode(t.problem.number), title: t.problem.title }
+          : null,
+      integration:
+        t.integration && actor.permissions.has('integration.read')
+          ? {
+              id: t.integration.id,
+              code: formatIntegrationCode(t.integration.number),
+              name: t.integration.name,
+            }
           : null,
       improvement:
         t.improvement && actor.permissions.has('improvement.read')
@@ -398,62 +430,63 @@ export class TicketsService {
   }
 
   /**
-   * Deriva un ticket abierto a una mejora: el SLA se detiene y el solicitante recibe un
-   * comentario público. Devuelve false si el ticket ya no está abierto.
+   * Deriva un ticket abierto a una mejora o una integración: el SLA se detiene y el solicitante
+   * recibe un comentario público. Devuelve false si el ticket ya no está abierto.
    */
-  async deriveToImprovement(
+  async derive(
     id: string,
-    improvement: { id: string; code: string },
+    target: DeriveTarget,
     actor: AuthContext,
     meta: RequestMeta,
   ): Promise<boolean> {
     const t = await this.prisma.ticket.findUnique({ where: { id }, include: listInclude });
     if (!t || !OPEN_STATUSES.includes(t.status)) return false;
+    const d = DERIVATIONS[target.kind];
     await this.prisma.ticketComment.create({
       data: {
         ticketId: id,
         authorId: actor.user.id,
-        body:
-          `Tu pedido pasó a una mejora del sistema (${improvement.code}). ` +
-          'Te avisamos por acá cuando esté implementada o si se decide no hacerla.',
+        body: d.message(target.code),
         visibility: 'PUBLIC',
       },
     });
-    await this.applyStatus(t, 'DERIVED_TO_IMPROVEMENT', actor, meta, {
-      improvementId: improvement.id,
-    });
+    await this.applyStatus(t, d.status, actor, meta, { [d.field]: target.id });
     return true;
   }
 
-  /** Cierra un ticket derivado cuando su mejora se implementa o se descarta. */
-  async closeFromImprovement(
+  /** Cierra un ticket derivado cuando su mejora o integración termina. */
+  async closeDerived(
     id: string,
+    kind: DeriveKind,
     message: string,
     actor: AuthContext,
     meta: RequestMeta,
   ): Promise<boolean> {
     const t = await this.prisma.ticket.findUnique({ where: { id }, include: listInclude });
-    if (!t || t.status !== 'DERIVED_TO_IMPROVEMENT') return false;
+    const d = DERIVATIONS[kind];
+    if (!t || t.status !== d.status) return false;
     await this.prisma.ticketComment.create({
       data: { ticketId: id, authorId: actor.user.id, body: message, visibility: 'PUBLIC' },
     });
-    await this.applyStatus(t, 'CLOSED', actor, meta, { closeReason: 'IMPROVEMENT' });
+    await this.applyStatus(t, 'CLOSED', actor, meta, { closeReason: d.closeReason });
     return true;
   }
 
-  /** Saca un ticket de una mejora que sigue en curso: vuelve a "En curso" y el SLA se reanuda. */
-  async returnFromImprovement(
+  /** Saca un ticket de una mejora o integración en curso: vuelve a "En curso" y el SLA se reanuda. */
+  async returnDerived(
     id: string,
-    improvementId: string,
+    kind: DeriveKind,
+    targetId: string,
     actor: AuthContext,
     meta: RequestMeta,
   ): Promise<boolean> {
     const t = await this.prisma.ticket.findUnique({ where: { id }, include: listInclude });
-    if (!t || t.improvementId !== improvementId) return false;
-    if (t.status === 'DERIVED_TO_IMPROVEMENT') {
-      await this.applyStatus(t, 'IN_PROGRESS', actor, meta, { improvementId: null });
+    const d = DERIVATIONS[kind];
+    if (!t || t[d.field] !== targetId) return false;
+    if (t.status === d.status) {
+      await this.applyStatus(t, 'IN_PROGRESS', actor, meta, { [d.field]: null });
     } else {
-      await this.prisma.ticket.update({ where: { id }, data: { improvementId: null } });
+      await this.prisma.ticket.update({ where: { id }, data: { [d.field]: null } });
     }
     return true;
   }

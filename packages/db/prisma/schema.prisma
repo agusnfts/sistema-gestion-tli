@@ -41,25 +41,32 @@ model User {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
-  defaultArea         Area?                @relation(fields: [defaultAreaId], references: [id])
-  defaultWarehouse    Warehouse?           @relation(fields: [defaultWarehouseId], references: [id])
-  roles               UserRole[]
-  sessions            Session[]
-  recoveryCodes       MfaRecoveryCode[]
-  auditEntries        AuditLog[]
-  requestedTickets    Ticket[]             @relation("TicketRequester")
-  assignedTickets     Ticket[]             @relation("TicketAssignee")
-  ticketComments      TicketComment[]
-  timeEntries         TimeEntry[]
-  notifications       Notification[]
-  activityEvents      ActivityEvent[]
-  attachments         Attachment[]
-  ownedProblems       Problem[]            @relation("ProblemOwner")
-  createdProblems     Problem[]            @relation("ProblemCreator")
-  ownedImprovements   Improvement[]        @relation("ImprovementOwner")
-  createdImprovements Improvement[]        @relation("ImprovementCreator")
-  improvementComments ImprovementComment[]
-  problemActions      ProblemAction[]
+  defaultArea          Area?                 @relation(fields: [defaultAreaId], references: [id])
+  defaultWarehouse     Warehouse?            @relation(fields: [defaultWarehouseId], references: [id])
+  roles                UserRole[]
+  sessions             Session[]
+  recoveryCodes        MfaRecoveryCode[]
+  auditEntries         AuditLog[]
+  requestedTickets     Ticket[]              @relation("TicketRequester")
+  assignedTickets      Ticket[]              @relation("TicketAssignee")
+  ticketComments       TicketComment[]
+  timeEntries          TimeEntry[]
+  notifications        Notification[]
+  activityEvents       ActivityEvent[]
+  attachments          Attachment[]
+  ownedProblems        Problem[]             @relation("ProblemOwner")
+  createdProblems      Problem[]             @relation("ProblemCreator")
+  ownedImprovements    Improvement[]         @relation("ImprovementOwner")
+  createdImprovements  Improvement[]         @relation("ImprovementCreator")
+  improvementComments  ImprovementComment[]
+  problemActions       ProblemAction[]
+  ownedIntegrations    Integration[]         @relation("IntegrationOwner")
+  createdIntegrations  Integration[]         @relation("IntegrationCreator")
+  integrationActions   IntegrationAction[]
+  integrationRevisions IntegrationRevision[]
+  integrationQuotes    IntegrationQuote[]
+  documents            Document[]
+  documentVersions     DocumentVersion[]
 
   @@index([status])
 }
@@ -169,15 +176,17 @@ model Warehouse {
   updatedAt DateTime @updatedAt
   users     User[]
   tickets   Ticket[]
+  clients   Client[]
 }
 
 model Provider {
-  id           String        @id @default(uuid()) @db.Uuid
-  name         String        @unique
-  active       Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id           String             @id @default(uuid()) @db.Uuid
+  name         String             @unique
+  active       Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
   improvements Improvement[]
+  quotes       IntegrationQuote[]
 }
 
 // ---------------------------------------------------------------------------
@@ -275,6 +284,8 @@ model Ticket {
   problemId          String?                  @db.Uuid
   // Mejora a la que se derivó (estado DERIVED_TO_IMPROVEMENT). Se cierra cuando la mejora termina.
   improvementId      String?                  @db.Uuid
+  // Integración a la que se derivó (estado DERIVED_TO_INTEGRATION).
+  integrationId      String?                  @db.Uuid
   // Columna generada (ver migración problems): asunto + descripción, en español sin acentos.
   searchVector       Unsupported("tsvector")? @default(dbgenerated("(setweight(to_tsvector('tli_spanish'::regconfig, COALESCE(subject, ''::text)), 'A'::\"char\") || setweight(to_tsvector('tli_spanish'::regconfig, COALESCE(description, ''::text)), 'B'::\"char\"))"))
   createdAt          DateTime                 @default(now())
@@ -289,6 +300,7 @@ model Ticket {
   attachments Attachment[]
   problem     Problem?        @relation(fields: [problemId], references: [id], onDelete: SetNull)
   improvement Improvement?    @relation(fields: [improvementId], references: [id], onDelete: SetNull)
+  integration Integration?    @relation(fields: [integrationId], references: [id], onDelete: SetNull)
 
   @@index([status, assigneeId])
   @@index([requesterId, createdAt])
@@ -296,6 +308,7 @@ model Ticket {
   @@index([resolutionDueAt])
   @@index([problemId])
   @@index([improvementId])
+  @@index([integrationId])
   @@index([searchVector], type: Gin)
   @@index([subject(ops: raw("gin_trgm_ops"))], type: Gin, map: "Ticket_subject_trgm_idx")
 }
@@ -407,6 +420,10 @@ model Attachment {
   // Adjuntos de las acciones registradas en una mejora o en un problema.
   improvementCommentId String?    @db.Uuid
   problemActionId      String?    @db.Uuid
+  integrationActionId  String?    @db.Uuid
+  integrationQuoteId   String?    @db.Uuid
+  // Archivo de una versión de documento de la biblioteca.
+  documentVersionId    String?    @unique @db.Uuid
   createdAt            DateTime   @default(now())
   scannedAt            DateTime?
 
@@ -415,11 +432,16 @@ model Attachment {
   comment            TicketComment?      @relation(fields: [commentId], references: [id], onDelete: Cascade)
   improvementComment ImprovementComment? @relation(fields: [improvementCommentId], references: [id], onDelete: Cascade)
   problemAction      ProblemAction?      @relation(fields: [problemActionId], references: [id], onDelete: Cascade)
+  integrationAction  IntegrationAction?  @relation(fields: [integrationActionId], references: [id], onDelete: Cascade)
+  integrationQuote   IntegrationQuote?   @relation(fields: [integrationQuoteId], references: [id], onDelete: Cascade)
+  documentVersion    DocumentVersion?    @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
 
   @@index([ticketId])
   @@index([commentId])
   @@index([improvementCommentId])
   @@index([problemActionId])
+  @@index([integrationActionId])
+  @@index([integrationQuoteId])
   @@index([uploadedById, createdAt])
 }
 
@@ -530,6 +552,7 @@ model Improvement {
   createdBy      User                 @relation("ImprovementCreator", fields: [createdById], references: [id])
   tickets        Ticket[]
   problems       Problem[]
+  clients        Client[]
   comments       ImprovementComment[]
 
   @@index([status])
@@ -563,4 +586,306 @@ model ProblemAction {
   attachments Attachment[]
 
   @@index([problemId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Fase 5: clientes, integraciones y biblioteca básica
+// ---------------------------------------------------------------------------
+
+enum ClientStatus {
+  ACTIVE
+  ONBOARDING
+  INACTIVE
+}
+
+enum ContactKind {
+  COMMERCIAL
+  SYSTEMS
+  OTHER
+}
+
+model Client {
+  id        String       @id @default(uuid()) @db.Uuid
+  legalName String
+  shortName String?
+  // CUIT sin guiones (11 dígitos, dígito verificador validado). Puede faltar en un alta en curso.
+  cuit      String?      @unique
+  status    ClientStatus @default(ACTIVE)
+  // Domicilio fiscal o comercial (del F50: domicilio, localidad, CP y provincia).
+  address   String?
+  // Folio del formulario F50 de alta de clientes: permite reimportar sin duplicar.
+  f50Folio  String?      @unique
+  notes     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  warehouses   Warehouse[]
+  contacts     ClientContact[]
+  integrations Integration[]
+  improvements Improvement[]
+
+  @@index([legalName])
+}
+
+model ClientContact {
+  id        String      @id @default(uuid()) @db.Uuid
+  clientId  String      @db.Uuid
+  kind      ContactKind @default(OTHER)
+  // Área del cliente que atiende (Operaciones, Facturación, Tráfico…).
+  role      String?
+  name      String
+  email     String?
+  phone     String?
+  notes     String?
+  createdAt DateTime    @default(now())
+  client    Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+enum IntegrationCounterpart {
+  CLIENT
+  CARRIER
+  OTHER
+}
+
+enum IntegrationProcess {
+  INBOUND_ORDERS
+  OUTBOUND_ORDERS
+  STOCK
+  DELIVERY_NOTES
+  CONFIRMATIONS
+  TRACKING
+  LABELS
+  OTHER
+}
+
+enum IntegrationSystem {
+  WMS
+  TMS
+  TYT
+  ROUTING
+}
+
+enum IntegrationDirection {
+  INBOUND
+  OUTBOUND
+  BIDIRECTIONAL
+}
+
+enum IntegrationChannel {
+  FTP_SFTP
+  NETWORK_FOLDER
+  EMAIL
+  API
+  EDI
+  MANUAL
+}
+
+enum IntegrationFormat {
+  CSV
+  FIXED_WIDTH_TXT
+  XML
+  JSON
+  EXCEL
+}
+
+enum IntegrationStatus {
+  PENDING_SURVEY
+  PENDING_QUOTE
+  QUOTED
+  IN_DEVELOPMENT
+  COMPLETED
+  NOT_DONE
+}
+
+enum NotDoneReason {
+  CLIENT_REJECTED_COST
+  TML_REJECTED_COST
+  OTHER
+}
+
+model Integration {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  // Se muestra como INT-0001.
+  number              Int                    @unique @default(autoincrement())
+  name                String
+  // Con quién: un cliente del maestro, un expreso u otro (estos dos por nombre).
+  counterpartType     IntegrationCounterpart
+  clientId            String?                @db.Uuid
+  counterpartName     String?
+  // Una integración puede cubrir varios procesos y tocar varios sistemas nuestros.
+  processes           IntegrationProcess[]
+  systems             IntegrationSystem[]
+  // null mientras no se sepa (el pedido puede venir con "No sé").
+  direction           IntegrationDirection?
+  channel             IntegrationChannel?
+  format              IntegrationFormat?
+  frequency           String?
+  // Carpeta, endpoint o casilla.
+  location            String?
+  requiresDevelopment Boolean                @default(true)
+  status              IntegrationStatus      @default(PENDING_SURVEY)
+  notDoneReason       NotDoneReason?
+  notDoneNotes        String?
+  // Texto con plantilla (Flujo, Origen y destino, …). Cada cambio queda en IntegrationRevision.
+  howItWorks          String                 @default("")
+  currency            Currency               @default(ARS)
+  estimatedHours      Decimal?               @db.Decimal(8, 1)
+  actualHours         Decimal?               @db.Decimal(8, 1)
+  actualCost          Decimal?               @db.Decimal(14, 2)
+  startDate           DateTime?              @db.Date
+  targetDate          DateTime?              @db.Date
+  goLiveDate          DateTime?              @db.Date
+  ownerId             String?                @db.Uuid
+  // Mensaje para los tickets derivados al finalizar o no realizarse.
+  closingMessage      String?
+  completedAt         DateTime?
+  createdById         String                 @db.Uuid
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  client    Client?               @relation(fields: [clientId], references: [id])
+  // Plataformas del otro lado: e-commerce (MELI, Tienda Nube…) o ERP (SAP, Odoo…).
+  platforms Platform[]
+  owner     User?                 @relation("IntegrationOwner", fields: [ownerId], references: [id])
+  createdBy User                  @relation("IntegrationCreator", fields: [createdById], references: [id])
+  tickets   Ticket[]
+  revisions IntegrationRevision[]
+  quotes    IntegrationQuote[]
+  actions   IntegrationAction[]
+
+  @@index([status])
+  @@index([clientId])
+}
+
+model IntegrationRevision {
+  id            String      @id @default(uuid()) @db.Uuid
+  integrationId String      @db.Uuid
+  howItWorks    String
+  authorId      String      @db.Uuid
+  createdAt     DateTime    @default(now())
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  author        User        @relation(fields: [authorId], references: [id])
+
+  @@index([integrationId, createdAt])
+}
+
+model IntegrationQuote {
+  id             String       @id @default(uuid()) @db.Uuid
+  integrationId  String       @db.Uuid
+  providerId     String       @db.Uuid
+  amount         Decimal      @db.Decimal(14, 2)
+  currency       Currency     @default(ARS)
+  estimatedHours Decimal?     @db.Decimal(8, 1)
+  quotedAt       DateTime     @db.Date
+  notes          String?
+  // Una sola elegida por integración: define el costo estimado.
+  isSelected     Boolean      @default(false)
+  createdById    String       @db.Uuid
+  createdAt      DateTime     @default(now())
+  integration    Integration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  provider       Provider     @relation(fields: [providerId], references: [id])
+  createdBy      User         @relation(fields: [createdById], references: [id])
+  attachments    Attachment[]
+
+  @@index([integrationId])
+}
+
+model IntegrationAction {
+  id            String       @id @default(uuid()) @db.Uuid
+  integrationId String       @db.Uuid
+  authorId      String       @db.Uuid
+  body          String
+  createdAt     DateTime     @default(now())
+  integration   Integration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  author        User         @relation(fields: [authorId], references: [id])
+  attachments   Attachment[]
+
+  @@index([integrationId, createdAt])
+}
+
+enum DocumentVisibility {
+  PUBLIC
+  INTERNAL
+}
+
+enum DocumentEntity {
+  CLIENT
+  INTEGRATION
+  IMPROVEMENT
+  ARTICLE
+}
+
+enum DocumentLinkType {
+  SPECIFICATION
+  LAYOUT
+  SAMPLE_FILE
+  MINUTES
+  QUOTE
+  MANUAL
+  OTHER
+}
+
+// Biblioteca: un documento tiene versiones (cada una, un archivo) y se vincula a entidades.
+// La extracción de texto, OCR y búsqueda llegan en la Fase 6.
+model Document {
+  id               String             @id @default(uuid()) @db.Uuid
+  title            String
+  description      String?
+  visibility       DocumentVisibility @default(INTERNAL)
+  currentVersionId String?            @unique @db.Uuid
+  authorId         String             @db.Uuid
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  author         User              @relation(fields: [authorId], references: [id])
+  currentVersion DocumentVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  versions       DocumentVersion[] @relation("DocumentVersions")
+  links          DocumentLink[]
+}
+
+model DocumentVersion {
+  id           String      @id @default(uuid()) @db.Uuid
+  documentId   String      @db.Uuid
+  version      Int
+  note         String?
+  uploadedById String      @db.Uuid
+  createdAt    DateTime    @default(now())
+  document     Document    @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Cascade)
+  uploadedBy   User        @relation(fields: [uploadedById], references: [id])
+  attachment   Attachment?
+  currentOf    Document?   @relation("CurrentVersion")
+
+  @@unique([documentId, version])
+}
+
+model DocumentLink {
+  id         String           @id @default(uuid()) @db.Uuid
+  documentId String           @db.Uuid
+  entityType DocumentEntity
+  entityId   String           @db.Uuid
+  linkType   DocumentLinkType @default(OTHER)
+  createdAt  DateTime         @default(now())
+  document   Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, entityType, entityId])
+  @@index([entityType, entityId])
+}
+
+enum PlatformCategory {
+  ECOMMERCE
+  ERP
+  OTHER
+}
+
+// Catálogo editable de plataformas externas con las que nos integramos.
+model Platform {
+  id           String           @id @default(uuid()) @db.Uuid
+  name         String           @unique
+  category     PlatformCategory @default(OTHER)
+  active       Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  integrations Integration[]
 }
