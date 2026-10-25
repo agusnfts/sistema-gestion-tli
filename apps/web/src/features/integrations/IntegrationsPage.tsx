@@ -6,15 +6,20 @@ import {
   INTEGRATION_CHANNEL_LABELS,
   INTEGRATION_FLOW_LABELS,
   INTEGRATION_PROCESS_LABELS,
+  INTEGRATION_STATUS_LABELS,
   INTEGRATION_SYSTEMS,
   INTEGRATION_SYSTEM_LABELS,
   NOT_DONE_REASON_LABELS,
   isIntegrationFinal,
   type IntegrationListItem,
+  type IntegrationStatus,
   type IntegrationSystem,
   type Paginated,
 } from '@tli/shared';
 import { api } from '@/lib/api';
+import { useUrlState } from '@/lib/url-state';
+import { FilterChips } from '@/components/ui/filter-chips';
+import { useStaffName } from '@/features/tickets/useStaffName';
 import { cn } from '@/lib/utils';
 import { useHasPermission } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -145,20 +150,27 @@ export function IntegrationsTable({ items }: { items: IntegrationListItem[] }) {
 
 export function IntegrationsPage() {
   const can = useHasPermission();
-  const [state, setState] = useState<(typeof STATES)[number]['value']>('pending');
-  const [system, setSystem] = useState<IntegrationSystem | ''>('');
-  const [platformId, setPlatformId] = useState('');
+  const [state, setState] = useUrlState<(typeof STATES)[number]['value']>('state', 'pending');
+  const [system, setSystem] = useUrlState<IntegrationSystem | ''>('system', '');
+  const [platformId, setPlatformId] = useUrlState<string>('platformId', '');
+  const [status, setStatus] = useUrlState<IntegrationStatus | ''>('status', '');
+  const [overdue, setOverdue] = useUrlState<'' | 'true'>('overdue', '');
+  const [owner, setOwner] = useUrlState<string>('owner', '');
+  const ownerName = useStaffName(owner);
   const platforms = useCatalog('platforms');
   const [q, setQ] = useState('');
   const [creating, setCreating] = useState(false);
   const integrations = useQuery({
-    queryKey: ['integrations', 'list', state, system, platformId, q],
+    queryKey: ['integrations', 'list', state, system, platformId, status, overdue, owner, q],
     queryFn: () =>
       api<Paginated<IntegrationListItem>>('/integrations', {
         query: {
           state,
           system: system || undefined,
           platformId: platformId || undefined,
+          status: status || undefined,
+          overdue: overdue || undefined,
+          owner: owner || undefined,
           q,
           pageSize: 100,
         },
@@ -232,6 +244,22 @@ export function IntegrationsPage() {
           onChange={(e) => setQ(e.target.value)}
         />
       </div>
+      <FilterChips
+        items={[
+          ...(status
+            ? [
+                {
+                  label: `Estado: ${INTEGRATION_STATUS_LABELS[status]}`,
+                  onClear: () => setStatus(''),
+                },
+              ]
+            : []),
+          ...(overdue
+            ? [{ label: 'Con la fecha objetivo vencida', onClear: () => setOverdue('') }]
+            : []),
+          ...(owner ? [{ label: `Responsable: ${ownerName}`, onClear: () => setOwner('') }] : []),
+        ]}
+      />
       {integrations.isLoading ? (
         <Spinner />
       ) : integrations.data?.items.length === 0 ? (

@@ -103,7 +103,13 @@ export class ClientsService {
     const [pending, integrations, documents] = await Promise.all([
       this.pendingCounts([id]),
       canIntegrations
-        ? this.integrations.list({ clientId: id, state: 'all', page: 1, pageSize: 100 })
+        ? this.integrations.list({
+            clientId: id,
+            state: 'all',
+            overdue: false,
+            page: 1,
+            pageSize: 100,
+          })
         : null,
       this.documents.listFor('CLIENT', id),
     ]);

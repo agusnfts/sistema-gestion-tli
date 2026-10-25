@@ -12,6 +12,7 @@ import {
   type Paginated,
 } from '@tli/shared';
 import { api } from '@/lib/api';
+import { useUrlState } from '@/lib/url-state';
 import { useHasPermission } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Checkbox, Field, Input, Select } from '@/components/ui/form';
@@ -33,7 +34,7 @@ export function ClientStatusBadge({ status }: { status: ClientStatus }) {
 
 export function ClientsPage() {
   const can = useHasPermission();
-  const [status, setStatus] = useState<ClientStatus | ''>('');
+  const [status, setStatus] = useUrlState<ClientStatus | ''>('status', '');
   const [q, setQ] = useState('');
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);

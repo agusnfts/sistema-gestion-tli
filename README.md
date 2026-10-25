@@ -16,7 +16,8 @@ La documentación de diseño está en [`docs/`](docs/README.md) (arquitectura, m
 | 4    | Mejoras: kanban, derivación de tickets y problemas, cierre en bloque con mensaje             | ✅        |
 | 5    | Clientes e integraciones: maestro, importación del F50, cotizaciones, documentos versionados | ✅        |
 | 6    | Conocimiento: artículos con versiones, biblioteca con búsqueda en PDF, texto enriquecido     | ✅        |
-| 7–8  | Dashboard, producción                                                                        | Pendiente |
+| 7    | Dashboard: indicadores con período y responsable, cada número lleva a su lista               | ✅        |
+| 8    | Producción                                                                                   | Pendiente |
 
 ## Stack
 

@@ -65,6 +65,8 @@ export type LinkTicketsInput = z.infer<typeof linkTicketsSchema>;
 
 export const listProblemsQuerySchema = paginationSchema.extend({
   state: z.enum(['open', 'resolved', 'all']).default('open'),
+  status: z.enum(PROBLEM_STATUSES).optional(),
+  owner: uuidSchema.optional(),
   q: z.string().trim().max(100).optional(),
 });
 export type ListProblemsQuery = z.infer<typeof listProblemsQuerySchema>;

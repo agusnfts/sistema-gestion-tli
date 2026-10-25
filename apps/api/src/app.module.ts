@@ -25,6 +25,7 @@ import { IntegrationsModule } from './integrations/integrations.module';
 import { ClientsModule } from './clients/clients.module';
 import { IndexingModule } from './knowledge/indexing.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { HealthController } from './health/health.controller';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 
@@ -82,6 +83,7 @@ import { HttpExceptionFilter } from './common/http-exception.filter';
     ClientsModule,
     IndexingModule,
     KnowledgeModule,
+    DashboardModule,
   ],
   controllers: [HealthController],
   providers: [

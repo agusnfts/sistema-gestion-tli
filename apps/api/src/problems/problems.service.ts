@@ -70,8 +70,14 @@ export class ProblemsService {
 
   async list(q: ListProblemsQuery): Promise<Paginated<ProblemListItem>> {
     const where: Prisma.ProblemWhereInput = {
+      ownerId: q.owner,
       status:
-        q.state === 'open' ? { not: 'RESOLVED' } : q.state === 'resolved' ? 'RESOLVED' : undefined,
+        q.status ??
+        (q.state === 'open'
+          ? { not: 'RESOLVED' }
+          : q.state === 'resolved'
+            ? 'RESOLVED'
+            : undefined),
     };
     if (q.q) {
       const n = /^(?:prb-?)?0*(\d{1,9})$/i.exec(q.q.trim());

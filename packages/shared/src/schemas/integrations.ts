@@ -256,6 +256,12 @@ export const listIntegrationsQuerySchema = paginationSchema.extend({
   status: z.enum(INTEGRATION_STATUSES).optional(),
   system: z.enum(INTEGRATION_SYSTEMS).optional(),
   platformId: uuidSchema.optional(),
+  owner: uuidSchema.optional(),
+  /** Pendientes con la fecha objetivo vencida. */
+  overdue: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
   clientId: uuidSchema.optional(),
   q: z.string().trim().max(100).optional(),
 });

@@ -74,13 +74,15 @@ export class ImprovementsService {
 
   async list(q: ListImprovementsQuery): Promise<Paginated<ImprovementListItem>> {
     const where: Prisma.ImprovementWhereInput = {
+      ownerId: q.owner,
       system: q.system,
       status:
-        q.state === 'active'
+        q.status ??
+        (q.state === 'active'
           ? { notIn: [...FINAL] }
           : q.state === 'closed'
             ? { in: [...FINAL] }
-            : undefined,
+            : undefined),
     };
     if (q.q) {
       const n = /^(?:mej-?)?0*(\d{1,9})$/i.exec(q.q.trim());

@@ -140,6 +140,8 @@ export type LinkClientsInput = z.infer<typeof linkClientsSchema>;
 
 export const listImprovementsQuerySchema = paginationSchema.extend({
   state: z.enum(['active', 'closed', 'all']).default('active'),
+  status: z.enum(IMPROVEMENT_STATUSES).optional(),
+  owner: uuidSchema.optional(),
   system: z.enum(IMPROVEMENT_SYSTEMS).optional(),
   q: z.string().trim().max(100).optional(),
 });

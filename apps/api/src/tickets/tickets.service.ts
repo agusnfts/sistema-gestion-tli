@@ -35,6 +35,7 @@ import {
 } from '@tli/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { htmlToPlainText, isHtml, sanitizeRichText } from '../common/rich-text';
+import { dayRange, doneInRange, slaWhere } from './ticket-filters';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -246,32 +247,13 @@ export class TicketsService {
     else if (q.assignee === 'none') where.assigneeId = null;
     else if (q.assignee) where.assigneeId = q.assignee;
 
-    // Las marcas de riesgo/vencimiento las pone el monitor de SLA.
-    if (q.sla === 'breached') {
-      where.AND = [
-        { status: { in: [...OPEN_STATUSES] } },
-        {
-          OR: [
-            { firstResponseBreachAt: { not: null }, firstRespondedAt: null },
-            { resolutionBreachAt: { not: null } },
-          ],
-        },
-      ];
-    } else if (q.sla === 'at_risk') {
-      where.AND = [
-        { status: { in: [...OPEN_STATUSES] } },
-        {
-          OR: [
-            {
-              firstResponseRiskAt: { not: null },
-              firstResponseBreachAt: null,
-              firstRespondedAt: null,
-            },
-            { resolutionRiskAt: { not: null }, resolutionBreachAt: null },
-          ],
-        },
-      ];
-    }
+    const and: Prisma.TicketWhereInput[] = [];
+    if (q.sla) and.push(slaWhere(q.sla));
+    const created = dayRange(q.createdFrom, q.createdTo);
+    if (created) where.createdAt = created;
+    const done = dayRange(q.doneFrom, q.doneTo);
+    if (done) and.push(doneInRange(done));
+    if (and.length) where.AND = and;
 
     if (q.q) {
       const number = parseTicketNumber(q.q);

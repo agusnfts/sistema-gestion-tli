@@ -220,6 +220,8 @@ export const createTicketSchema = z
   });
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 
+const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida');
+
 export const listTicketsQuerySchema = paginationSchema.extend({
   scope: z.enum(['mine', 'all']).default('mine'),
   state: z.enum(['open', 'resolved', 'closed', 'all']).default('open'),
@@ -229,6 +231,12 @@ export const listTicketsQuerySchema = paginationSchema.extend({
   category: z.enum(TICKET_CATEGORIES).optional(),
   assignee: z.union([z.literal('me'), z.literal('none'), uuidSchema]).optional(),
   sla: z.enum(['at_risk', 'breached']).optional(),
+  /** Creados entre estas fechas (días locales, YYYY-MM-DD). */
+  createdFrom: isoDay.optional(),
+  createdTo: isoDay.optional(),
+  /** Resueltos o cerrados entre estas fechas. */
+  doneFrom: isoDay.optional(),
+  doneTo: isoDay.optional(),
   q: z.string().trim().max(100).optional(),
 });
 export type ListTicketsQuery = z.infer<typeof listTicketsQuerySchema>;

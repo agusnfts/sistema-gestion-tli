@@ -1,17 +1,9 @@
 import { Link } from 'react-router';
-import {
-  AlarmClock,
-  ClipboardList,
-  Inbox,
-  Settings,
-  Shield,
-  Tags,
-  UserCog,
-  Users,
-} from 'lucide-react';
+import { ClipboardList, Settings, Shield, Tags, UserCog, Users } from 'lucide-react';
 import type { PermissionKey } from '@tli/shared';
 import { useHasPermission, useMe } from '@/lib/auth';
 import { Card, PageHeader } from '@/components/ui/misc';
+import { Dashboard } from '@/features/dashboard/Dashboard';
 
 type Shortcut = {
   to: string;
@@ -22,20 +14,6 @@ type Shortcut = {
 };
 
 const SHORTCUTS: Shortcut[] = [
-  {
-    to: '/tickets',
-    title: 'Tickets',
-    text: 'Bandeja de IT',
-    icon: Inbox,
-    permission: 'ticket.read.all',
-  },
-  {
-    to: '/tickets?sla=breached',
-    title: 'SLA vencidos',
-    text: 'Tickets abiertos fuera de término',
-    icon: AlarmClock,
-    permission: 'ticket.read.all',
-  },
   {
     to: '/admin/configuracion',
     title: 'Configuración',
@@ -86,6 +64,8 @@ export function HomePage() {
         title={`Hola, ${firstName}`}
         description="Sistema de Gestión TLI · TML Logística"
       />
+      <Dashboard />
+      <h2 className="mb-3 mt-8 text-sm font-semibold text-muted">Accesos rápidos</h2>
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {shortcuts.map((s) => (
           <li key={s.to}>

@@ -2,7 +2,16 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { TICKET_CATEGORY_LABELS, type Paginated, type ProblemListItem } from '@tli/shared';
+import {
+  PROBLEM_STATUS_LABELS,
+  TICKET_CATEGORY_LABELS,
+  type Paginated,
+  type ProblemListItem,
+  type ProblemStatus,
+} from '@tli/shared';
+import { useUrlState } from '@/lib/url-state';
+import { FilterChips } from '@/components/ui/filter-chips';
+import { useStaffName } from '@/features/tickets/useStaffName';
 import { api } from '@/lib/api';
 import { cn, formatDateTime } from '@/lib/utils';
 import { useHasPermission } from '@/lib/auth';
@@ -19,13 +28,18 @@ const STATES = [
 
 export function ProblemsPage() {
   const can = useHasPermission();
-  const [state, setState] = useState<(typeof STATES)[number]['value']>('open');
+  const [state, setState] = useUrlState<(typeof STATES)[number]['value']>('state', 'open');
+  const [status, setStatus] = useUrlState<ProblemStatus | ''>('status', '');
+  const [owner, setOwner] = useUrlState<string>('owner', '');
+  const ownerName = useStaffName(owner);
   const [q, setQ] = useState('');
   const [creating, setCreating] = useState(false);
   const problems = useQuery({
-    queryKey: ['problems', 'list', state, q],
+    queryKey: ['problems', 'list', state, status, owner, q],
     queryFn: () =>
-      api<Paginated<ProblemListItem>>('/problems', { query: { state, q, pageSize: 50 } }),
+      api<Paginated<ProblemListItem>>('/problems', {
+        query: { state, status: status || undefined, owner: owner || undefined, q, pageSize: 50 },
+      }),
     placeholderData: keepPreviousData,
   });
 
@@ -70,6 +84,14 @@ export function ProblemsPage() {
         />
       </div>
 
+      <FilterChips
+        items={[
+          ...(status
+            ? [{ label: `Estado: ${PROBLEM_STATUS_LABELS[status]}`, onClear: () => setStatus('') }]
+            : []),
+          ...(owner ? [{ label: `Responsable: ${ownerName}`, onClear: () => setOwner('') }] : []),
+        ]}
+      />
       {problems.isLoading ? (
         <Spinner />
       ) : problems.data?.items.length === 0 ? (

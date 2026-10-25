@@ -27,6 +27,7 @@ import { FilesService, toAttachmentInfo } from '../files/files.service';
 import { DocumentsService } from '../documents/documents.service';
 import { IndexingService } from '../knowledge/indexing.service';
 import { sanitizeRichText } from '../common/rich-text';
+import { startOfLocalDay, todayLocal } from '../tickets/ticket-filters';
 import type { AuthContext, RequestMeta } from '../common/auth-context';
 
 /** "Integraciones pendientes": todo lo que no está finalizado ni descartado. */
@@ -97,6 +98,7 @@ export class IntegrationsService {
       systems: q.system ? { has: q.system } : undefined,
       platforms: q.platformId ? { some: { id: q.platformId } } : undefined,
       clientId: q.clientId,
+      ownerId: q.owner,
       status:
         q.status ??
         (q.state === 'pending'
@@ -105,6 +107,10 @@ export class IntegrationsService {
             ? { in: [...FINAL] }
             : undefined),
     };
+    if (q.overdue) {
+      where.status = { in: [...PENDING_INTEGRATION_STATUSES] };
+      where.targetDate = { lt: startOfLocalDay(todayLocal()) };
+    }
     if (q.q) {
       const n = /^(?:int-?)?0*(\d{1,9})$/i.exec(q.q.trim());
       where.OR = [

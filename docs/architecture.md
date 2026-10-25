@@ -45,7 +45,7 @@ apps/api/src/
   knowledge/     artículos, documentos, fragmentos, búsqueda
   files/         storage, adjuntos, URLs firmadas
   notifications/ campana + EmailSender
-  dashboard/     indicadores agregados
+  dashboard/     indicadores agregados (usa los mismos filtros que las listas: tickets/ticket-filters.ts)
   privacy/       exportación / anonimización por titular
 ```
 

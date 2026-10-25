@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
+import { FilterChips } from '@/components/ui/filter-chips';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   PRIORITIES,
@@ -25,7 +26,22 @@ import { Input, Select } from '@/components/ui/form';
 import { Card, PageHeader, Spinner, Table, Td, Th } from '@/components/ui/misc';
 import { PriorityLabel, primarySla, SlaBadge, StatusBadge } from './ui';
 
-const FILTER_KEYS = ['state', 'type', 'priority', 'category', 'assignee', 'sla', 'q'] as const;
+const FILTER_KEYS = [
+  'state',
+  'type',
+  'priority',
+  'category',
+  'assignee',
+  'sla',
+  'q',
+  // Fechas (llegan desde el dashboard; se muestran como chips).
+  'createdFrom',
+  'createdTo',
+  'doneFrom',
+  'doneTo',
+] as const;
+const DATE_KEYS = ['createdFrom', 'createdTo', 'doneFrom', 'doneTo'];
+const day = (iso: string) => iso.split('-').reverse().join('/');
 
 /** Bandeja de IT. Los filtros viven en la URL para poder compartir o volver a una vista. */
 export function TicketsInboxPage() {
@@ -36,8 +52,38 @@ export function TicketsInboxPage() {
   const filters = Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? undefined]));
   filters.state ??= 'open';
   const activeFilters = FILTER_KEYS.filter(
-    (k) => k !== 'q' && filters[k] && !(k === 'state' && filters[k] === 'open'),
+    (k) =>
+      k !== 'q' &&
+      !DATE_KEYS.includes(k) &&
+      filters[k] &&
+      !(k === 'state' && filters[k] === 'open'),
   ).length;
+  const clearDates = (keys: string[]) => {
+    const next = new URLSearchParams(params);
+    keys.forEach((k) => next.delete(k));
+    next.delete('page');
+    setParams(next, { replace: true });
+  };
+  const dateChips = [
+    ...(filters.createdFrom || filters.createdTo
+      ? [
+          {
+            label:
+              `Creados ${filters.createdFrom ? `desde el ${day(filters.createdFrom)}` : ''} ${filters.createdTo ? `hasta el ${day(filters.createdTo)}` : ''}`.trim(),
+            onClear: () => clearDates(['createdFrom', 'createdTo']),
+          },
+        ]
+      : []),
+    ...(filters.doneFrom || filters.doneTo
+      ? [
+          {
+            label:
+              `Cerrados ${filters.doneFrom ? `desde el ${day(filters.doneFrom)}` : ''} ${filters.doneTo ? `hasta el ${day(filters.doneTo)}` : ''}`.trim(),
+            onClear: () => clearDates(['doneFrom', 'doneTo']),
+          },
+        ]
+      : []),
+  ];
 
   const setFilter = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -82,6 +128,7 @@ export function TicketsInboxPage() {
   return (
     <>
       <PageHeader title="Tickets" description="Bandeja de IT" />
+      <FilterChips items={dateChips} />
       {selected.size > 0 && (
         <div
           role="region"

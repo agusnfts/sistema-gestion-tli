@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Columns3, List, Plus } from 'lucide-react';
 import {
@@ -15,6 +15,9 @@ import {
   type Paginated,
 } from '@tli/shared';
 import { api } from '@/lib/api';
+import { useUrlState } from '@/lib/url-state';
+import { FilterChips } from '@/components/ui/filter-chips';
+import { useStaffName } from '@/features/tickets/useStaffName';
 import { cn, formatDateTime } from '@/lib/utils';
 import { useHasPermission } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -51,9 +54,16 @@ const STATES = [
 export function ImprovementsPage() {
   const can = useHasPermission();
   const canManage = can('improvement.manage');
-  const [view, setViewState] = useState<View>(initialView);
-  const [system, setSystem] = useState<ImprovementSystem | ''>('');
-  const [state, setState] = useState<(typeof STATES)[number]['value']>('active');
+  const [params] = useSearchParams();
+  // Un link con ?view=list (ej. desde el dashboard) manda sobre la preferencia guardada.
+  const [view, setViewState] = useState<View>(() =>
+    params.get('view') === 'list' ? 'list' : initialView(),
+  );
+  const [system, setSystem] = useUrlState<ImprovementSystem | ''>('system', '');
+  const [state, setState] = useUrlState<(typeof STATES)[number]['value']>('state', 'active');
+  const [status, setStatus] = useUrlState<ImprovementStatus | ''>('status', '');
+  const [owner, setOwner] = useUrlState<string>('owner', '');
+  const ownerName = useStaffName(owner);
   const [q, setQ] = useState('');
   const [creating, setCreating] = useState(false);
 
@@ -69,10 +79,17 @@ export function ImprovementsPage() {
   // El kanban muestra todas las columnas, incluidas las cerradas.
   const effectiveState = view === 'kanban' ? 'all' : state;
   const improvements = useQuery({
-    queryKey: ['improvements', 'list', effectiveState, system, q],
+    queryKey: ['improvements', 'list', effectiveState, system, status, owner, q],
     queryFn: () =>
       api<Paginated<ImprovementListItem>>('/improvements', {
-        query: { state: effectiveState, system: system || undefined, q, pageSize: 100 },
+        query: {
+          state: effectiveState,
+          system: system || undefined,
+          status: status || undefined,
+          owner: owner || undefined,
+          q,
+          pageSize: 100,
+        },
       }),
     placeholderData: keepPreviousData,
   });
@@ -147,6 +164,19 @@ export function ImprovementsPage() {
         />
       </div>
 
+      <FilterChips
+        items={[
+          ...(status
+            ? [
+                {
+                  label: `Estado: ${IMPROVEMENT_STATUS_LABELS[status]}`,
+                  onClear: () => setStatus(''),
+                },
+              ]
+            : []),
+          ...(owner ? [{ label: `Responsable: ${ownerName}`, onClear: () => setOwner('') }] : []),
+        ]}
+      />
       {improvements.isLoading ? (
         <Spinner />
       ) : view === 'kanban' ? (

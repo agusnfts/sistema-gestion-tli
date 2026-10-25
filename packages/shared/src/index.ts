@@ -23,3 +23,4 @@ export * from './schemas/clients';
 export * from './schemas/integrations';
 export * from './schemas/documents';
 export * from './schemas/knowledge';
+export * from './schemas/dashboard';
