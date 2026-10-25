@@ -9,6 +9,7 @@ import {
   computeDueDates,
   fixedCategoryFor,
   isCategoryAllowed,
+  formatProblemCode,
   formatTicketNumber,
   localDateKey,
   MANUAL_TRANSITIONS,
@@ -28,12 +29,14 @@ import {
   type TicketStatus,
   type UpdateTicketInput,
   type UserRef,
+  type SimilarResults,
 } from '@tli/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FilesService, toAttachmentInfo } from '../files/files.service';
+import { SimilarityService } from '../search/similarity.service';
 import type { AuthContext, RequestMeta } from '../common/auth-context';
 import {
   priorityChangePatch,
@@ -49,6 +52,7 @@ const listInclude = {
   assignee: userRef,
   warehouse: { select: { id: true, name: true } },
   area: { select: { id: true, name: true } },
+  problem: { select: { id: true, number: true, title: true } },
 } satisfies Prisma.TicketInclude;
 
 type TicketRow = Prisma.TicketGetPayload<{ include: typeof listInclude }>;
@@ -63,6 +67,7 @@ export class TicketsService {
     private readonly settings: SettingsService,
     private readonly notifications: NotificationsService,
     private readonly files: FilesService,
+    private readonly similarity: SimilarityService,
   ) {}
 
   private async slaContext(): Promise<SlaContext> {
@@ -73,7 +78,7 @@ export class TicketsService {
     return { calendar, policies };
   }
 
-  private toListItem(t: TicketRow, ctx: SlaContext, now: Date): TicketListItem {
+  private toListItem(t: TicketRow, ctx: SlaContext, now: Date, actor: AuthContext): TicketListItem {
     return {
       id: t.id,
       number: formatTicketNumber(t.number),
@@ -87,6 +92,11 @@ export class TicketsService {
       assignee: t.assignee,
       warehouse: t.warehouse,
       area: t.area,
+      // El vínculo con un problema es información interna de IT.
+      problem:
+        t.problem && actor.permissions.has('problem.read')
+          ? { id: t.problem.id, code: formatProblemCode(t.problem.number), title: t.problem.title }
+          : null,
       createdAt: t.createdAt.toISOString(),
       updatedAt: t.updatedAt.toISOString(),
       sla: slaSnapshot(t, now, ctx),
@@ -244,7 +254,7 @@ export class TicketsService {
       total,
       page: q.page,
       pageSize: q.pageSize,
-      items: rows.map((t) => this.toListItem(t, ctx, now)),
+      items: rows.map((t) => this.toListItem(t, ctx, now, actor)),
     };
   }
 
@@ -297,7 +307,7 @@ export class TicketsService {
     });
 
     return {
-      ...this.toListItem(t, ctx, new Date()),
+      ...this.toListItem(t, ctx, new Date(), actor),
       description: t.description,
       userUrgency: t.userUrgency,
       extraFields: (t.extraFields ?? {}) as Record<string, unknown>,
@@ -340,6 +350,41 @@ export class TicketsService {
         (canManage || (isRequester && actor.permissions.has('ticket.comment.own'))),
       canManage,
     };
+  }
+
+  /** Tickets y problemas parecidos a este ticket (para detectar duplicados o causa común). */
+  async similar(id: string, actor: AuthContext): Promise<SimilarResults> {
+    const t = await this.findVisible(id, actor);
+    return this.similarity.find({ title: t.subject, body: t.description }, { ticketIds: [t.id] });
+  }
+
+  /**
+   * Resolución en bloque desde un problema: mensaje público al solicitante y pase a "Resuelto"
+   * con la causa y la solución del problema. Devuelve false si el ticket ya no estaba abierto.
+   */
+  async resolveFromProblem(
+    id: string,
+    input: { cause: string; solution: string; message: string },
+    actor: AuthContext,
+    meta: RequestMeta,
+  ): Promise<boolean> {
+    const t = await this.prisma.ticket.findUnique({ where: { id }, include: listInclude });
+    if (!t || !OPEN_STATUSES.includes(t.status)) return false;
+    const now = new Date();
+    await this.prisma.ticketComment.create({
+      data: {
+        ticketId: id,
+        authorId: actor.user.id,
+        body: input.message,
+        visibility: 'PUBLIC',
+        createdAt: now,
+      },
+    });
+    await this.applyStatus(t, 'RESOLVED', actor, meta, {
+      resolutionCause: input.cause,
+      resolutionSolution: input.solution,
+    });
+    return true;
   }
 
   async assignees(): Promise<UserRef[]> {

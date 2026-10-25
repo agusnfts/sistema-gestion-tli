@@ -19,6 +19,8 @@ import { NewTicketPage } from '@/features/tickets/NewTicketPage';
 import { MyTicketsPage } from '@/features/tickets/MyTicketsPage';
 import { TicketsInboxPage } from '@/features/tickets/TicketsInboxPage';
 import { TicketDetailPage } from '@/features/tickets/TicketDetailPage';
+import { ProblemsPage } from '@/features/problems/ProblemsPage';
+import { ProblemDetailPage } from '@/features/problems/ProblemDetailPage';
 import { useHasPermission } from '@/lib/auth';
 
 /** Admin e IT empiezan en Inicio; el usuario común, en "Mis tickets". */
@@ -102,6 +104,22 @@ const router = createBrowserRouter([
             ),
           },
           { path: 'tickets/:id', element: <TicketDetailPage /> },
+          {
+            path: 'problemas',
+            element: (
+              <RequirePermission permission="problem.read">
+                <ProblemsPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'problemas/:id',
+            element: (
+              <RequirePermission permission="problem.read">
+                <ProblemDetailPage />
+              </RequirePermission>
+            ),
+          },
           {
             path: 'admin/configuracion',
             element: (

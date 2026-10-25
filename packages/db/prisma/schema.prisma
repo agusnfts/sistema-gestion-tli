@@ -54,6 +54,8 @@ model User {
   notifications    Notification[]
   activityEvents   ActivityEvent[]
   attachments      Attachment[]
+  ownedProblems    Problem[]         @relation("ProblemOwner")
+  createdProblems  Problem[]         @relation("ProblemCreator")
 
   @@index([status])
 }
@@ -264,8 +266,11 @@ model Ticket {
   closeReason        String?
   resolutionCause    String?
   resolutionSolution String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  problemId          String?                  @db.Uuid
+  // Columna generada (ver migración problems): asunto + descripción, en español sin acentos.
+  searchVector       Unsupported("tsvector")? @default(dbgenerated("(setweight(to_tsvector('tli_spanish'::regconfig, COALESCE(subject, ''::text)), 'A'::\"char\") || setweight(to_tsvector('tli_spanish'::regconfig, COALESCE(description, ''::text)), 'B'::\"char\"))"))
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 
   requester   User            @relation("TicketRequester", fields: [requesterId], references: [id])
   assignee    User?           @relation("TicketAssignee", fields: [assigneeId], references: [id])
@@ -274,11 +279,15 @@ model Ticket {
   comments    TicketComment[]
   timeEntries TimeEntry[]
   attachments Attachment[]
+  problem     Problem?        @relation(fields: [problemId], references: [id], onDelete: SetNull)
 
   @@index([status, assigneeId])
   @@index([requesterId, createdAt])
   @@index([firstResponseDueAt])
   @@index([resolutionDueAt])
+  @@index([problemId])
+  @@index([searchVector], type: Gin)
+  @@index([subject(ops: raw("gin_trgm_ops"))], type: Gin, map: "Ticket_subject_trgm_idx")
 }
 
 model TicketComment {
@@ -395,4 +404,44 @@ model Attachment {
   @@index([ticketId])
   @@index([commentId])
   @@index([uploadedById, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Fase 3: problemas (causa raíz)
+// ---------------------------------------------------------------------------
+
+enum ProblemStatus {
+  OPEN
+  INVESTIGATING
+  ROOT_CAUSE_IDENTIFIED
+  RESOLVED
+}
+
+// Agrupa tickets que comparten causa raíz (práctica ITIL de problem management).
+model Problem {
+  id                String                   @id @default(uuid()) @db.Uuid
+  // Se muestra como PRB-0001.
+  number            Int                      @unique @default(autoincrement())
+  title             String
+  description       String
+  category          TicketCategory
+  rootCause         String?
+  workaround        String?
+  permanentSolution String?
+  status            ProblemStatus            @default(OPEN)
+  ownerId           String?                  @db.Uuid
+  createdById       String                   @db.Uuid
+  resolvedAt        DateTime?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  // Columna generada: título + descripción + causa raíz.
+  searchVector      Unsupported("tsvector")? @default(dbgenerated("((setweight(to_tsvector('tli_spanish'::regconfig, COALESCE(title, ''::text)), 'A'::\"char\") || setweight(to_tsvector('tli_spanish'::regconfig, COALESCE(description, ''::text)), 'B'::\"char\")) || setweight(to_tsvector('tli_spanish'::regconfig, COALESCE(\"rootCause\", ''::text)), 'C'::\"char\"))"))
+
+  owner     User?    @relation("ProblemOwner", fields: [ownerId], references: [id])
+  createdBy User     @relation("ProblemCreator", fields: [createdById], references: [id])
+  tickets   Ticket[]
+
+  @@index([status])
+  @@index([searchVector], type: Gin)
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Problem_title_trgm_idx")
 }

@@ -8,6 +8,7 @@ import {
   Home,
   Inbox,
   PlusCircle,
+  Puzzle,
   Settings,
   Ticket,
   KeyRound,
@@ -32,6 +33,7 @@ type NavItem = { to: string; label: string; icon: typeof Home; permission?: Perm
 const MAIN_NAV: NavItem[] = [
   { to: '/', label: 'Inicio', icon: Home, permission: 'dashboard.view' },
   { to: '/tickets', label: 'Tickets', icon: Inbox, permission: 'ticket.read.all' },
+  { to: '/problemas', label: 'Problemas', icon: Puzzle, permission: 'problem.read' },
   { to: '/mis-tickets', label: 'Mis tickets', icon: Ticket, permission: 'ticket.read.own' },
   { to: '/tickets/nuevo', label: 'Nuevo ticket', icon: PlusCircle, permission: 'ticket.create' },
 ];

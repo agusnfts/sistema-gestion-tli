@@ -18,6 +18,7 @@ export const AUDIT_ACTIONS = [
   'user.password.reset',
   'user.mfa.reset',
   'user.unlocked',
+  'user.access.recovered',
   'role.created',
   'role.updated',
   'role.deleted',
@@ -33,6 +34,10 @@ export const AUDIT_ACTIONS = [
   'holiday.deleted',
   'file.downloaded',
   'file.infected',
+  'problem.created',
+  'problem.status.changed',
+  'problem.tickets.linked',
+  'problem.tickets.unlinked',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -56,6 +61,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'user.password.reset': 'Contraseña reseteada por Admin',
   'user.mfa.reset': 'MFA reseteado por Admin',
   'user.unlocked': 'Usuario desbloqueado',
+  'user.access.recovered': 'Acceso recuperado desde el servidor',
   'role.created': 'Rol creado',
   'role.updated': 'Rol modificado',
   'role.deleted': 'Rol eliminado',
@@ -71,4 +77,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'holiday.deleted': 'Feriado eliminado',
   'file.downloaded': 'Descarga de adjunto',
   'file.infected': 'Adjunto rechazado por el antivirus',
+  'problem.created': 'Problema creado',
+  'problem.status.changed': 'Cambio de estado de problema',
+  'problem.tickets.linked': 'Tickets vinculados a un problema',
+  'problem.tickets.unlinked': 'Ticket desvinculado de un problema',
 };

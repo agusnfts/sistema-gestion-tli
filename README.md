@@ -6,13 +6,14 @@ La documentación de diseño está en [`docs/`](docs/README.md) (arquitectura, m
 
 ## Estado
 
-| Fase | Contenido                                                                              | Estado    |
-| ---- | -------------------------------------------------------------------------------------- | --------- |
-| 0    | Diseño                                                                                 | ✅        |
-| 1    | Base: monorepo, auth + MFA, usuarios, roles, auditoría, layout, CI                     | ✅        |
-| 2a   | Ticketera: formulario guiado, estados, SLA, notificaciones, Mis tickets, bandeja de IT | ✅        |
-| 2b   | Adjuntos con antivirus, worker (BullMQ), mail opcional, texto enriquecido              | Pendiente |
-| 3–8  | Problemas, mejoras, clientes/integraciones, conocimiento, dashboard, producción        | Pendiente |
+| Fase | Contenido                                                                                | Estado    |
+| ---- | ---------------------------------------------------------------------------------------- | --------- |
+| 0    | Diseño                                                                                   | ✅        |
+| 1    | Base: monorepo, auth + MFA, usuarios, roles, auditoría, layout, CI                       | ✅        |
+| 2a   | Ticketera: formulario guiado, estados, SLA, notificaciones, Mis tickets, bandeja de IT   | ✅        |
+| 2b   | Adjuntos con antivirus, worker (BullMQ), mail opcional                                   | ✅        |
+| 3    | Problemas: agrupar tickets por causa raíz, resolución en bloque, sugerencia de similares | ✅        |
+| 4–8  | Mejoras, clientes/integraciones, conocimiento, dashboard, producción                     | Pendiente |
 
 ## Stack
 
@@ -64,10 +65,18 @@ pnpm totp <CLAVE>
 | `pnpm db:seed`                                                                        | Seed base (permisos, roles, catálogos iniciales). Seguro en producción            |
 | `pnpm db:seed:dev`                                                                    | Seed base + usuarios de desarrollo                                                |
 | `pnpm --filter @tli/db create-admin -- --email x@tml.com.ar --name "Nombre Apellido"` | Crea el primer Admin e imprime una contraseña temporal                            |
+| `pnpm --filter @tli/db recover-access -- --email x@tml.com.ar`                        | Recupera el acceso de quien perdió el autenticador (ver abajo)                    |
 
 Para la primera vez con Playwright: `pnpm --filter @tli/web exec playwright install chromium`.
 
 Los tests e2e de la API pueden usar una base aparte definiendo `TEST_DATABASE_URL` (ver `.env.example`).
+
+### Si perdés la app de autenticación y los códigos de recuperación
+
+- **Si hay otro Admin:** en Administración → Usuarios puede usar _Resetear MFA_ (al ingresar configurás el autenticador de nuevo) y, si hace falta, _Resetear contraseña_ (te da una contraseña temporal).
+- **Si sos el único Admin:** quien tenga acceso al servidor corre `pnpm --filter @tli/db recover-access -- --email tu@tml.com.ar`. Resetea el MFA, imprime una contraseña temporal (hay que cambiarla al ingresar), desbloquea la cuenta, cierra todas las sesiones y lo registra en la auditoría como _Acceso recuperado desde el servidor_. No reactiva usuarios deshabilitados.
+
+Recomendación: tener al menos dos Admins y guardar los códigos de recuperación fuera del celular.
 
 ## Seguridad implementada
 

@@ -301,6 +301,8 @@ export type TicketListItem = {
   assignee: UserRef | null;
   warehouse: { id: string; name: string } | null;
   area: { id: string; name: string } | null;
+  /** Problema (causa raíz) al que está vinculado. Solo se informa a IT. */
+  problem: { id: string; code: string; title: string } | null;
   createdAt: string;
   updatedAt: string;
   sla: { firstResponse: SlaInfo; resolution: SlaInfo };

@@ -6,6 +6,6 @@ import { SlaMonitorService } from './sla-monitor.service';
 @Module({
   controllers: [TicketsController],
   providers: [TicketsService, SlaMonitorService],
-  exports: [SlaMonitorService],
+  exports: [SlaMonitorService, TicketsService],
 })
 export class TicketsModule {}

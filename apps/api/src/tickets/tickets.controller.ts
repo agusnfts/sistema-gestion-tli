@@ -53,6 +53,12 @@ export class TicketsController {
     return this.tickets.assignees();
   }
 
+  @Get(':id/similar')
+  @RequirePermission('ticket.read.all', 'problem.read')
+  similar(@Param('id', ParseUUIDPipe) id: string, @CurrentAuth() auth: AuthContext) {
+    return this.tickets.similar(id, auth);
+  }
+
   @Get(':id')
   @RequireAnyPermission('ticket.read.own', 'ticket.read.all')
   get(@Param('id', ParseUUIDPipe) id: string, @CurrentAuth() auth: AuthContext) {

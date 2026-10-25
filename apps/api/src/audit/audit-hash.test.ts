@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeAuditHash } from './audit.service';
-import { canonicalJson } from '../common/canonical-json';
+import { canonicalJson, computeAuditHash } from '@tli/db';
 
 describe('canonicalJson', () => {
   it('ordena claves y omite undefined', () => {

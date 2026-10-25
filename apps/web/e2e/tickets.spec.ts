@@ -1,14 +1,12 @@
 import { expect, test } from '@playwright/test';
+import { USER_STATE } from './state';
 
-// Usuario del seed de desarrollo (packages/db/src/seed/dev.ts).
-const USER = { email: 'usuario@tli.local', password: 'tli-dev-local-2026' };
+// Sesión del usuario común guardada por auth.setup.ts (sin volver a iniciar sesión).
+test.use({ storageState: USER_STATE });
 
 test('un usuario propone una automatización y la encuentra en Mis tickets', async ({ page }) => {
   const subject = `Automatizar carga de stock ${Date.now()}`;
-  await page.goto('/ingresar');
-  await page.getByLabel('Email').fill(USER.email);
-  await page.getByLabel('Contraseña').fill(USER.password);
-  await page.getByRole('button', { name: 'Ingresar' }).click();
+  await page.goto('/');
   await expect(page).toHaveURL(/\/mis-tickets$/);
 
   await page.getByRole('link', { name: 'Nuevo ticket' }).first().click();
@@ -48,11 +46,6 @@ test('un usuario adjunta una captura a un ticket de soporte', async ({ page }) =
     'base64',
   );
   const subject = `Error con captura ${Date.now()}`;
-  await page.goto('/ingresar');
-  await page.getByLabel('Email').fill(USER.email);
-  await page.getByLabel('Contraseña').fill(USER.password);
-  await page.getByRole('button', { name: 'Ingresar' }).click();
-  await expect(page).toHaveURL(/\/mis-tickets$/);
 
   await page.goto('/tickets/nuevo');
   await page.getByRole('button', { name: /^Soporte/ }).click();

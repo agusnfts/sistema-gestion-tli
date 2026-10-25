@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { createHash } from 'node:crypto';
-import { Prisma } from '@tli/db';
+import { AUDIT_GENESIS_HASH, appendAuditEntry, computeAuditHash, Prisma } from '@tli/db';
 import type {
   AuditAction,
   AuditLogItem,
@@ -9,7 +8,6 @@ import type {
   Paginated,
 } from '@tli/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { canonicalJson } from '../common/canonical-json';
 
 export type AuditEntry = {
   action: AuditAction;
@@ -21,33 +19,6 @@ export type AuditEntry = {
   metadata?: Record<string, unknown>;
 };
 
-const GENESIS_HASH = '0'.repeat(64);
-// Clave arbitraria del advisory lock que serializa las inserciones de la cadena.
-const AUDIT_LOCK_KEY = 727_001;
-
-type HashInput = {
-  occurredAt: Date;
-  actorId: string | null;
-  action: string;
-  entityType: string | null;
-  entityId: string | null;
-  ip: string | null;
-  metadata: unknown;
-};
-
-export function computeAuditHash(prevHash: string, row: HashInput): string {
-  const payload = canonicalJson({
-    occurredAt: row.occurredAt.toISOString(),
-    actorId: row.actorId,
-    action: row.action,
-    entityType: row.entityType,
-    entityId: row.entityId,
-    ip: row.ip,
-    metadata: row.metadata ?? {},
-  });
-  return createHash('sha256').update(prevHash).update(payload).digest('hex');
-}
-
 @Injectable()
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
@@ -58,26 +29,14 @@ export class AuditService {
     await this.prisma.$transaction((t) => this.insert(t, entry));
   }
 
-  private async insert(tx: Prisma.TransactionClient, entry: AuditEntry): Promise<void> {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${AUDIT_LOCK_KEY})`;
-    const last = await tx.auditLog.findFirst({ orderBy: { seq: 'desc' }, select: { hash: true } });
-    const prevHash = last?.hash ?? GENESIS_HASH;
-    const row: HashInput = {
-      occurredAt: new Date(),
+  private insert(tx: Prisma.TransactionClient, entry: AuditEntry): Promise<void> {
+    return appendAuditEntry(tx, {
       actorId: entry.actorId ?? null,
       action: entry.action,
       entityType: entry.entityType ?? null,
       entityId: entry.entityId ?? null,
       ip: entry.ip ?? null,
       metadata: entry.metadata ?? {},
-    };
-    await tx.auditLog.create({
-      data: {
-        ...row,
-        metadata: row.metadata as Prisma.InputJsonValue,
-        prevHash,
-        hash: computeAuditHash(prevHash, row),
-      },
     });
   }
 
@@ -119,7 +78,7 @@ export class AuditService {
   /** Recorre la cadena completa y verifica cada hash. */
   async verifyChain(): Promise<AuditVerifyResponse> {
     const BATCH = 1000;
-    let prevHash = GENESIS_HASH;
+    let prevHash = AUDIT_GENESIS_HASH;
     let cursor: bigint | undefined;
     let checked = 0;
     for (;;) {

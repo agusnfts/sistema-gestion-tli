@@ -21,3 +21,11 @@ Se necesita: búsqueda en español sobre tickets, problemas, artículos y conten
 ## Consecuencias
 
 - Menos infraestructura. Las migraciones con SQL manual deben quedar documentadas y testeadas.
+
+## Implementación (Fase 3)
+
+- Extensiones `pg_trgm` y `unaccent`, y configuración `tli_spanish` (= `spanish` + `unaccent`), creadas en la migración `problems`.
+- Columnas `searchVector` generadas (`GENERATED ALWAYS AS … STORED`) en `Ticket` (asunto A, descripción B) y `Problem` (título A, descripción B, causa raíz C), con índice GIN. Índices trigram (`gin_trgm_ops`) sobre `Ticket.subject` y `Problem.title`.
+- En Prisma se declaran como `Unsupported("tsvector")? @default(dbgenerated("…"))` con la misma expresión que devuelve la introspección: así `prisma migrate` no detecta diferencias ni intenta borrarlas.
+- `SimilarityService` arma una consulta OR con las palabras normalizadas del texto (`tsvector_to_array`) y combina `ts_rank` con `similarity()` del título (umbral 0,3). Devuelve hasta 5 tickets y 5 problemas (primero los abiertos). Solo sugiere: vincular es siempre una decisión de IT.
+- La migración requiere permiso para `CREATE EXTENSION` (en producción, correrla con el owner de la base).

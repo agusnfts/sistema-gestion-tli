@@ -12,6 +12,8 @@ import {
   type TicketListItem,
 } from '@tli/shared';
 import { api } from '@/lib/api';
+import { useHasPermission } from '@/lib/auth';
+import { CreateProblemDialog, LinkToProblemDialog } from '@/features/problems/components';
 import { cn, formatDateTime } from '@/lib/utils';
 import { SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -51,6 +53,19 @@ export function TicketsInboxPage() {
     placeholderData: keepPreviousData,
     refetchInterval: 60_000,
   });
+  // Selección para acciones en bloque (vincular a un problema; en la Fase 4, crear mejora).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulk, setBulk] = useState<'create-problem' | 'link-problem' | null>(null);
+  const canProblems = useHasPermission()('problem.manage');
+  const pageIds = tickets.data?.items.map((t) => t.id) ?? [];
+  const allSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const totalPages = tickets.data
     ? Math.max(1, Math.ceil(tickets.data.total / tickets.data.pageSize))
     : 1;
@@ -58,6 +73,42 @@ export function TicketsInboxPage() {
   return (
     <>
       <PageHeader title="Tickets" description="Bandeja de IT" />
+      {selected.size > 0 && (
+        <div
+          role="region"
+          aria-label="Acciones con los seleccionados"
+          className="sticky top-16 z-20 mb-3 hidden flex-wrap items-center gap-2 rounded-md border border-brand bg-primary-soft p-2 text-sm md:flex"
+        >
+          <span className="font-medium">{selected.size} seleccionado(s)</span>
+          <Button size="sm" onClick={() => setBulk('create-problem')}>
+            Crear problema
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => setBulk('link-problem')}>
+            Vincular a problema
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+            Quitar selección
+          </Button>
+        </div>
+      )}
+      {bulk === 'create-problem' && (
+        <CreateProblemDialog
+          ticketIds={[...selected]}
+          onClose={() => {
+            setBulk(null);
+            setSelected(new Set());
+          }}
+        />
+      )}
+      {bulk === 'link-problem' && (
+        <LinkToProblemDialog
+          ticketIds={[...selected]}
+          onClose={() => {
+            setBulk(null);
+            setSelected(new Set());
+          }}
+        />
+      )}
       <form
         className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
         onSubmit={(e) => {
@@ -197,6 +248,19 @@ export function TicketsInboxPage() {
             <Table>
               <thead>
                 <tr>
+                  {canProblems && (
+                    <Th className="w-8">
+                      <input
+                        type="checkbox"
+                        aria-label="Seleccionar todos los de esta página"
+                        className="size-4 accent-primary"
+                        checked={allSelected}
+                        onChange={() =>
+                          setSelected(allSelected ? new Set() : new Set([...selected, ...pageIds]))
+                        }
+                      />
+                    </Th>
+                  )}
                   <Th>N°</Th>
                   <Th>Asunto</Th>
                   <Th className="hidden lg:table-cell">Tipo</Th>
@@ -211,7 +275,21 @@ export function TicketsInboxPage() {
                 {tickets.data?.items.map((t) => {
                   const sla = primarySla(t.sla);
                   return (
-                    <tr key={t.id} className="hover:bg-bg">
+                    <tr
+                      key={t.id}
+                      className={cn('hover:bg-bg', selected.has(t.id) && 'bg-primary-soft')}
+                    >
+                      {canProblems && (
+                        <Td>
+                          <input
+                            type="checkbox"
+                            aria-label={`Seleccionar ${t.number}`}
+                            className="size-4 accent-primary"
+                            checked={selected.has(t.id)}
+                            onChange={() => toggle(t.id)}
+                          />
+                        </Td>
+                      )}
                       <Td className="whitespace-nowrap font-mono text-xs">
                         <Link to={`/tickets/${t.id}`} className="text-brand hover:underline">
                           {t.number}

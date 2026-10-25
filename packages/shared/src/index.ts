@@ -15,3 +15,4 @@ export * from './schemas/catalogs';
 export * from './schemas/common';
 export * from './schemas/tickets';
 export * from './schemas/settings';
+export * from './schemas/problems';

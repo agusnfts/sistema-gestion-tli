@@ -17,3 +17,6 @@ blob-report/
 .claude/
 .storage/
 dist-worker/
+
+# Sesiones guardadas por Playwright
+apps/web/e2e/.auth/

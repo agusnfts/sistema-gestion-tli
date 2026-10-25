@@ -17,6 +17,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { QueueModule } from './queue/queue.module';
 import { FilesModule } from './files/files.module';
+import { SearchModule } from './search/similarity.service';
+import { ProblemsModule } from './problems/problems.module';
 import { HealthController } from './health/health.controller';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 
@@ -66,6 +68,8 @@ import { HttpExceptionFilter } from './common/http-exception.filter';
     NotificationsModule,
     TicketsModule,
     FilesModule,
+    SearchModule,
+    ProblemsModule,
   ],
   controllers: [HealthController],
   providers: [

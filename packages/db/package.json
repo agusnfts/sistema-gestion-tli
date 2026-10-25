@@ -14,6 +14,7 @@
     "seed": "dotenv -e ../../.env -- tsx src/seed/base.ts",
     "seed:dev": "dotenv -e ../../.env -- tsx src/seed/dev.ts",
     "create-admin": "dotenv -e ../../.env -- tsx src/seed/create-admin.ts",
+    "recover-access": "dotenv -e ../../.env -- tsx src/seed/recover-access.ts",
     "test": "echo \"(sin tests unitarios)\""
   },
   "dependencies": {

@@ -27,6 +27,8 @@ import { Field, Input, Select } from '@/components/ui/form';
 import { Alert, Badge, Card, Spinner } from '@/components/ui/misc';
 import { Dialog } from '@/components/ui/dialog';
 import { PriorityLabel, SlaBadge, StatusBadge } from './ui';
+import { TicketProblemPanel } from '@/features/problems/TicketProblemPanel';
+import { useHasPermission } from '@/lib/auth';
 import {
   AttachmentList,
   AttachmentPicker,
@@ -89,6 +91,7 @@ function activityText(
 
 export function TicketDetailPage() {
   const { id = '' } = useParams();
+  const can = useHasPermission();
   const qc = useQueryClient();
   const ticket = useQuery({
     queryKey: ['tickets', 'detail', id],
@@ -243,6 +246,7 @@ export function TicketDetailPage() {
           ) : (
             <RequesterPanel ticket={t} />
           )}
+          {t.canManage && can('problem.read') && <TicketProblemPanel ticket={t} />}
           {t.timeEntries && <TimePanel ticket={t} onSaved={setData} />}
         </aside>
       </div>
