@@ -148,6 +148,11 @@ export const OPEN_STATUSES: readonly TicketStatus[] = [
 ];
 /** En estos estados el reloj de SLA está pausado. */
 export const PAUSED_STATUSES: readonly TicketStatus[] = ['WAITING_USER', 'WAITING_VENDOR'];
+/** Derivado a mejora o integración: el ticket espera a que termine ese trabajo. */
+export const DERIVED_STATUSES: readonly TicketStatus[] = [
+  'DERIVED_TO_IMPROVEMENT',
+  'DERIVED_TO_INTEGRATION',
+];
 /** En estos estados el SLA ya no corre (resuelto, cerrado o derivado). */
 export const SLA_STOPPED_STATUSES: readonly TicketStatus[] = [
   'RESOLVED',

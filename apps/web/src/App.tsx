@@ -21,6 +21,8 @@ import { TicketsInboxPage } from '@/features/tickets/TicketsInboxPage';
 import { TicketDetailPage } from '@/features/tickets/TicketDetailPage';
 import { ProblemsPage } from '@/features/problems/ProblemsPage';
 import { ProblemDetailPage } from '@/features/problems/ProblemDetailPage';
+import { ImprovementsPage } from '@/features/improvements/ImprovementsPage';
+import { ImprovementDetailPage } from '@/features/improvements/ImprovementDetailPage';
 import { useHasPermission } from '@/lib/auth';
 
 /** Admin e IT empiezan en Inicio; el usuario común, en "Mis tickets". */
@@ -117,6 +119,22 @@ const router = createBrowserRouter([
             element: (
               <RequirePermission permission="problem.read">
                 <ProblemDetailPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'mejoras',
+            element: (
+              <RequirePermission permission="improvement.read">
+                <ImprovementsPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'mejoras/:id',
+            element: (
+              <RequirePermission permission="improvement.read">
+                <ImprovementDetailPage />
               </RequirePermission>
             ),
           },

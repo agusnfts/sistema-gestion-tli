@@ -14,6 +14,10 @@ import {
 import { api } from '@/lib/api';
 import { useHasPermission } from '@/lib/auth';
 import { CreateProblemDialog, LinkToProblemDialog } from '@/features/problems/components';
+import {
+  CreateImprovementDialog,
+  LinkToImprovementDialog,
+} from '@/features/improvements/components';
 import { cn, formatDateTime } from '@/lib/utils';
 import { SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -53,10 +57,15 @@ export function TicketsInboxPage() {
     placeholderData: keepPreviousData,
     refetchInterval: 60_000,
   });
-  // Selección para acciones en bloque (vincular a un problema; en la Fase 4, crear mejora).
+  // Selección para acciones en bloque: problema (causa común) o mejora (derivación).
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulk, setBulk] = useState<'create-problem' | 'link-problem' | null>(null);
-  const canProblems = useHasPermission()('problem.manage');
+  const [bulk, setBulk] = useState<
+    'create-problem' | 'link-problem' | 'create-improvement' | 'link-improvement' | null
+  >(null);
+  const can = useHasPermission();
+  const canProblems = can('problem.manage');
+  const canImprovements = can('improvement.manage');
+  const canBulk = canProblems || canImprovements;
   const pageIds = tickets.data?.items.map((t) => t.id) ?? [];
   const allSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
   const toggle = (id: string) =>
@@ -80,12 +89,26 @@ export function TicketsInboxPage() {
           className="sticky top-16 z-20 mb-3 hidden flex-wrap items-center gap-2 rounded-md border border-brand bg-primary-soft p-2 text-sm md:flex"
         >
           <span className="font-medium">{selected.size} seleccionado(s)</span>
-          <Button size="sm" onClick={() => setBulk('create-problem')}>
-            Crear problema
-          </Button>
-          <Button size="sm" variant="secondary" onClick={() => setBulk('link-problem')}>
-            Vincular a problema
-          </Button>
+          {canProblems && (
+            <>
+              <Button size="sm" onClick={() => setBulk('create-problem')}>
+                Crear problema
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setBulk('link-problem')}>
+                Vincular a problema
+              </Button>
+            </>
+          )}
+          {canImprovements && (
+            <>
+              <Button size="sm" onClick={() => setBulk('create-improvement')}>
+                Crear mejora
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setBulk('link-improvement')}>
+                Derivar a mejora
+              </Button>
+            </>
+          )}
           <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
             Quitar selección
           </Button>
@@ -93,6 +116,24 @@ export function TicketsInboxPage() {
       )}
       {bulk === 'create-problem' && (
         <CreateProblemDialog
+          ticketIds={[...selected]}
+          onClose={() => {
+            setBulk(null);
+            setSelected(new Set());
+          }}
+        />
+      )}
+      {bulk === 'create-improvement' && (
+        <CreateImprovementDialog
+          ticketIds={[...selected]}
+          onClose={() => {
+            setBulk(null);
+            setSelected(new Set());
+          }}
+        />
+      )}
+      {bulk === 'link-improvement' && (
+        <LinkToImprovementDialog
           ticketIds={[...selected]}
           onClose={() => {
             setBulk(null);
@@ -248,7 +289,7 @@ export function TicketsInboxPage() {
             <Table>
               <thead>
                 <tr>
-                  {canProblems && (
+                  {canBulk && (
                     <Th className="w-8">
                       <input
                         type="checkbox"
@@ -279,7 +320,7 @@ export function TicketsInboxPage() {
                       key={t.id}
                       className={cn('hover:bg-bg', selected.has(t.id) && 'bg-primary-soft')}
                     >
-                      {canProblems && (
+                      {canBulk && (
                         <Td>
                           <input
                             type="checkbox"

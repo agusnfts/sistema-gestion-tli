@@ -3,6 +3,7 @@ import {
   computeDueDates,
   evaluateSla,
   PAUSED_STATUSES,
+  DERIVED_STATUSES,
   SLA_STOPPED_STATUSES,
   slaTargets,
   type BusinessCalendar,
@@ -68,7 +69,8 @@ export function statusTransitionPatch(
 ): SlaPatch {
   const patch: SlaPatch = { status: to };
   const wasPaused = t.slaPausedAt !== null;
-  const willPause = PAUSED_STATUSES.includes(to);
+  // Derivado a mejora/integración cuenta como pausa: si el ticket vuelve, el tiempo no se le cobra.
+  const willPause = PAUSED_STATUSES.includes(to) || DERIVED_STATUSES.includes(to);
 
   if (wasPaused && !willPause) {
     const pausedMinutes =
@@ -84,7 +86,8 @@ export function statusTransitionPatch(
     patch.slaPausedAt = now;
   }
 
-  if (to === 'IN_PROGRESS' && !t.firstRespondedAt) patch.firstRespondedAt = now;
+  if ((to === 'IN_PROGRESS' || DERIVED_STATUSES.includes(to)) && !t.firstRespondedAt)
+    patch.firstRespondedAt = now;
   if (to === 'RESOLVED') {
     patch.resolvedAt = now;
     if (!t.firstRespondedAt) patch.firstRespondedAt = now;

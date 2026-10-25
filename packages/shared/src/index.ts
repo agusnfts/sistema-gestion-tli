@@ -16,3 +16,5 @@ export * from './schemas/common';
 export * from './schemas/tickets';
 export * from './schemas/settings';
 export * from './schemas/problems';
+export * from './schemas/improvements';
+export * from './schemas/work-log';

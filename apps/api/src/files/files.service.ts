@@ -22,8 +22,20 @@ import { detectFileType, isInlineSafe } from './file-type';
 
 export type UploadedFile = { originalname: string; buffer: Buffer; size: number };
 
-// Los adjuntos que nunca se vincularon a un ticket o comentario se borran a las 24 h.
+// Los adjuntos que nunca se vincularon (a un ticket, comentario o acción) se borran a las 24 h.
 const ORPHAN_TTL_MS = 24 * 3600_000;
+
+export type LinkTarget =
+  | { ticketId: string; commentId?: string }
+  | { problemActionId: string }
+  | { improvementCommentId: string };
+
+const UNLINKED = {
+  ticketId: null,
+  commentId: null,
+  problemActionId: null,
+  improvementCommentId: null,
+} satisfies Prisma.AttachmentWhereInput;
 
 export function toAttachmentInfo(
   a: Pick<Attachment, 'id' | 'originalName' | 'sizeBytes' | 'mimeType' | 'scanStatus'>,
@@ -139,13 +151,14 @@ export class FilesService implements OnModuleInit {
   }
 
   /**
-   * Vincula adjuntos recién subidos a un ticket (y opcionalmente a un comentario).
-   * Solo los sube su autor, sin vincular y no rechazados por el antivirus.
+   * Vincula adjuntos recién subidos a un ticket (y opcionalmente a un comentario) o a una
+   * acción de un problema o una mejora. Solo los sube su autor, sin vincular y no rechazados
+   * por el antivirus.
    */
   async link(
     ids: string[] | undefined,
     actor: AuthContext,
-    target: { ticketId: string; commentId?: string },
+    target: LinkTarget,
     tx: Prisma.TransactionClient,
   ): Promise<void> {
     const unique = [...new Set(ids ?? [])];
@@ -154,11 +167,10 @@ export class FilesService implements OnModuleInit {
       where: {
         id: { in: unique },
         uploadedById: actor.user.id,
-        ticketId: null,
-        commentId: null,
+        ...UNLINKED,
         scanStatus: { not: 'INFECTED' },
       },
-      data: { ticketId: target.ticketId, commentId: target.commentId ?? null },
+      data: target,
     });
     if (count !== unique.length)
       throw new BadRequestException('Algún adjunto no es válido o ya fue usado');
@@ -182,7 +194,14 @@ export class FilesService implements OnModuleInit {
       !a.comment ||
       a.comment.visibility === 'PUBLIC' ||
       actor.permissions.has('ticket.comment.internal');
-    const allowed = a.ticketId ? canSeeTicket && canSeeComment : isUploader;
+    // Las acciones de problemas y mejoras son internas: alcanza con poder ver el módulo.
+    const allowed = a.ticketId
+      ? canSeeTicket && canSeeComment
+      : a.problemActionId
+        ? actor.permissions.has('problem.read')
+        : a.improvementCommentId
+          ? actor.permissions.has('improvement.read')
+          : isUploader;
     if (!allowed) throw new NotFoundException('Adjunto inexistente');
     if (a.scanStatus === 'PENDING_SCAN')
       throw new ConflictException('El archivo todavía se está analizando');
@@ -197,7 +216,11 @@ export class FilesService implements OnModuleInit {
         entityType: 'attachment',
         entityId: a.id,
         ip: meta.ip,
-        metadata: { ticketId: a.ticketId },
+        metadata: {
+          ticketId: a.ticketId,
+          problemActionId: a.problemActionId,
+          improvementCommentId: a.improvementCommentId,
+        },
       });
     }
     return {
@@ -220,8 +243,7 @@ export class FilesService implements OnModuleInit {
   async cleanupOrphans(now: Date): Promise<number> {
     const orphans = await this.prisma.attachment.findMany({
       where: {
-        ticketId: null,
-        commentId: null,
+        ...UNLINKED,
         createdAt: { lt: new Date(now.getTime() - ORPHAN_TTL_MS) },
       },
       take: 500,

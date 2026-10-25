@@ -9,6 +9,8 @@ import {
   type TestUser,
 } from './helpers';
 
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
+
 let ctx: TestContext;
 let requester: TestUser;
 let user: Client;
@@ -146,6 +148,15 @@ describe('problemas', () => {
 
 describe('sugerencia de similares', () => {
   it('sugiere tickets parecidos aunque cambien acentos y formas de las palabras', async () => {
+    // Las corridas anteriores dejan tickets casi iguales que desplazan a estos del top 5.
+    await ctx.prisma.ticket.deleteMany({
+      where: {
+        OR: [
+          { subject: { startsWith: 'Falla la impresión de remitos' } },
+          { subject: { startsWith: 'Error imprimiendo remito' } },
+        ],
+      },
+    });
     const original = await ticket(
       `Falla la impresión de remitos ${tag}`,
       'Error al imprimir remitos en Pacheco.',
@@ -179,5 +190,29 @@ describe('sugerencia de similares', () => {
   it('el usuario común no puede pedir similares', async () => {
     const t = await ticket(`Consulta ${tag}`);
     await user.get(`/api/tickets/${t.id}/similar`).expect(403);
+  });
+
+  it('IT registra acciones con adjuntos; el usuario común no puede ni verlas ni bajarlas', async () => {
+    const created = await it_
+      .post('/api/problems', {
+        title: `Lentitud del WMS ${tag} a la mañana`,
+        description: 'Entre las 8 y las 9 el WMS tarda más de 10 segundos en cada pantalla.',
+        category: 'WMS',
+      })
+      .expect(201);
+    const log = await it_.upload(PNG, 'grafico-cpu.png').expect(201);
+    const res = await it_
+      .post(`/api/problems/${created.body.id}/actions`, {
+        body: 'Revisamos el servidor: CPU al 100 % por el backup nocturno que se extiende.',
+        attachmentIds: [log.body.id],
+      })
+      .expect(200);
+    expect(res.body.actions).toHaveLength(1);
+    expect(res.body.actions[0].attachments[0].name).toBe('grafico-cpu.png');
+    await it_.post(`/api/problems/${created.body.id}/actions`, { body: '' }).expect(400);
+
+    await user.post(`/api/problems/${created.body.id}/actions`, { body: 'Hola' }).expect(403);
+    await user.get(`/api/attachments/${log.body.id}`).expect(404);
+    await it_.get(`/api/attachments/${log.body.id}`).expect(200);
   });
 });

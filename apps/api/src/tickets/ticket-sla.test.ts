@@ -46,6 +46,25 @@ describe('statusTransitionPatch', () => {
     expect(p.resolutionDueAt).toEqual(ar('2026-10-26T14:30'));
   });
 
+  it('derivar a mejora detiene el reloj y cuenta como primera respuesta', () => {
+    const fresh = { ...base, status: 'NEW' as const, firstRespondedAt: null };
+    const now = ar('2026-10-26T10:00');
+    const p = statusTransitionPatch(fresh, 'DERIVED_TO_IMPROVEMENT', now, ctx);
+    expect(p.slaPausedAt).toEqual(now);
+    expect(p.firstRespondedAt).toEqual(now);
+  });
+
+  it('si vuelve de la mejora, el tiempo derivado no se le cobra', () => {
+    const derived = {
+      ...base,
+      status: 'DERIVED_TO_IMPROVEMENT' as const,
+      slaPausedAt: ar('2026-10-26T10:00'),
+    };
+    const p = statusTransitionPatch(derived, 'IN_PROGRESS', ar('2026-10-26T12:00'), ctx);
+    expect(p.slaPausedMinutes).toBe(120);
+    expect(p.resolutionDueAt).toEqual(ar('2026-10-26T15:00'));
+  });
+
   it('pasar entre dos estados de espera no corta la pausa', () => {
     const paused = {
       ...base,

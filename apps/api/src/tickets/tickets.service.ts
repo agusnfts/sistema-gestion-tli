@@ -9,6 +9,7 @@ import {
   computeDueDates,
   fixedCategoryFor,
   isCategoryAllowed,
+  formatImprovementCode,
   formatProblemCode,
   formatTicketNumber,
   localDateKey,
@@ -53,6 +54,7 @@ const listInclude = {
   warehouse: { select: { id: true, name: true } },
   area: { select: { id: true, name: true } },
   problem: { select: { id: true, number: true, title: true } },
+  improvement: { select: { id: true, number: true, title: true } },
 } satisfies Prisma.TicketInclude;
 
 type TicketRow = Prisma.TicketGetPayload<{ include: typeof listInclude }>;
@@ -96,6 +98,14 @@ export class TicketsService {
       problem:
         t.problem && actor.permissions.has('problem.read')
           ? { id: t.problem.id, code: formatProblemCode(t.problem.number), title: t.problem.title }
+          : null,
+      improvement:
+        t.improvement && actor.permissions.has('improvement.read')
+          ? {
+              id: t.improvement.id,
+              code: formatImprovementCode(t.improvement.number),
+              title: t.improvement.title,
+            }
           : null,
       createdAt: t.createdAt.toISOString(),
       updatedAt: t.updatedAt.toISOString(),
@@ -384,6 +394,67 @@ export class TicketsService {
       resolutionCause: input.cause,
       resolutionSolution: input.solution,
     });
+    return true;
+  }
+
+  /**
+   * Deriva un ticket abierto a una mejora: el SLA se detiene y el solicitante recibe un
+   * comentario público. Devuelve false si el ticket ya no está abierto.
+   */
+  async deriveToImprovement(
+    id: string,
+    improvement: { id: string; code: string },
+    actor: AuthContext,
+    meta: RequestMeta,
+  ): Promise<boolean> {
+    const t = await this.prisma.ticket.findUnique({ where: { id }, include: listInclude });
+    if (!t || !OPEN_STATUSES.includes(t.status)) return false;
+    await this.prisma.ticketComment.create({
+      data: {
+        ticketId: id,
+        authorId: actor.user.id,
+        body:
+          `Tu pedido pasó a una mejora del sistema (${improvement.code}). ` +
+          'Te avisamos por acá cuando esté implementada o si se decide no hacerla.',
+        visibility: 'PUBLIC',
+      },
+    });
+    await this.applyStatus(t, 'DERIVED_TO_IMPROVEMENT', actor, meta, {
+      improvementId: improvement.id,
+    });
+    return true;
+  }
+
+  /** Cierra un ticket derivado cuando su mejora se implementa o se descarta. */
+  async closeFromImprovement(
+    id: string,
+    message: string,
+    actor: AuthContext,
+    meta: RequestMeta,
+  ): Promise<boolean> {
+    const t = await this.prisma.ticket.findUnique({ where: { id }, include: listInclude });
+    if (!t || t.status !== 'DERIVED_TO_IMPROVEMENT') return false;
+    await this.prisma.ticketComment.create({
+      data: { ticketId: id, authorId: actor.user.id, body: message, visibility: 'PUBLIC' },
+    });
+    await this.applyStatus(t, 'CLOSED', actor, meta, { closeReason: 'IMPROVEMENT' });
+    return true;
+  }
+
+  /** Saca un ticket de una mejora que sigue en curso: vuelve a "En curso" y el SLA se reanuda. */
+  async returnFromImprovement(
+    id: string,
+    improvementId: string,
+    actor: AuthContext,
+    meta: RequestMeta,
+  ): Promise<boolean> {
+    const t = await this.prisma.ticket.findUnique({ where: { id }, include: listInclude });
+    if (!t || t.improvementId !== improvementId) return false;
+    if (t.status === 'DERIVED_TO_IMPROVEMENT') {
+      await this.applyStatus(t, 'IN_PROGRESS', actor, meta, { improvementId: null });
+    } else {
+      await this.prisma.ticket.update({ where: { id }, data: { improvementId: null } });
+    }
     return true;
   }
 

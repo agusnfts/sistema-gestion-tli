@@ -1,9 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@tli/db';
 import {
+  formatImprovementCode,
   formatProblemCode,
   formatTicketNumber,
   OPEN_STATUSES,
+  type AddWorkLogInput,
   type ChangeProblemStatusInput,
   type ChangeProblemStatusResponse,
   type CreateProblemInput,
@@ -18,6 +20,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SimilarityService } from '../search/similarity.service';
+import { FilesService, toAttachmentInfo } from '../files/files.service';
 import { TicketsService } from '../tickets/tickets.service';
 import type { AuthContext, RequestMeta } from '../common/auth-context';
 
@@ -37,6 +40,7 @@ export class ProblemsService {
     private readonly notifications: NotificationsService,
     private readonly tickets: TicketsService,
     private readonly similarity: SimilarityService,
+    private readonly files: FilesService,
   ) {}
 
   private async openCounts(ids: string[]): Promise<Map<string, number>> {
@@ -95,13 +99,18 @@ export class ProblemsService {
     };
   }
 
-  async get(id: string): Promise<ProblemDetail> {
+  async get(id: string, actor: AuthContext): Promise<ProblemDetail> {
     const p = await this.prisma.problem.findUnique({
       where: { id },
       include: {
         ...listInclude,
         createdBy: userRef,
         tickets: { include: { requester: userRef }, orderBy: { createdAt: 'desc' } },
+        improvements: { orderBy: { number: 'asc' } },
+        actions: {
+          include: { author: userRef, attachments: { orderBy: { createdAt: 'asc' } } },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
     if (!p) throw new NotFoundException('Problema inexistente');
@@ -126,6 +135,21 @@ export class ProblemsService {
         status: t.status,
         requester: t.requester,
         createdAt: t.createdAt.toISOString(),
+      })),
+      improvements: actor.permissions.has('improvement.read')
+        ? p.improvements.map((i) => ({
+            id: i.id,
+            code: formatImprovementCode(i.number),
+            title: i.title,
+            status: i.status,
+          }))
+        : [],
+      actions: p.actions.map((c) => ({
+        id: c.id,
+        author: c.author,
+        body: c.body,
+        createdAt: c.createdAt.toISOString(),
+        attachments: c.attachments.map(toAttachmentInfo),
       })),
       activity: activity.map((a) => ({
         id: a.id,
@@ -172,7 +196,7 @@ export class ProblemsService {
         await this.linkInTx(tx, p.id, p.number, input.ticketIds, actor, meta);
       return p;
     });
-    return this.get(problem.id);
+    return this.get(problem.id, actor);
   }
 
   async update(id: string, input: UpdateProblemInput, actor: AuthContext): Promise<ProblemDetail> {
@@ -186,7 +210,7 @@ export class ProblemsService {
     const fields = (Object.keys(input) as (keyof UpdateProblemInput)[]).filter(
       (k) => input[k] !== undefined && input[k] !== p[k],
     );
-    if (!fields.length) return this.get(id);
+    if (!fields.length) return this.get(id, actor);
     await this.prisma.$transaction(async (tx) => {
       await tx.problem.update({ where: { id }, data: input });
       await tx.activityEvent.createMany({
@@ -199,7 +223,7 @@ export class ProblemsService {
         })),
       });
     });
-    return this.get(id);
+    return this.get(id, actor);
   }
 
   async changeStatus(
@@ -265,7 +289,7 @@ export class ProblemsService {
         if (done) resolvedTickets++;
       }
     }
-    return { problem: await this.get(id), resolvedTickets };
+    return { problem: await this.get(id, actor), resolvedTickets };
   }
 
   async link(
@@ -277,7 +301,7 @@ export class ProblemsService {
     const p = await this.prisma.problem.findUnique({ where: { id } });
     if (!p) throw new NotFoundException('Problema inexistente');
     await this.prisma.$transaction((tx) => this.linkInTx(tx, id, p.number, ticketIds, actor, meta));
-    return this.get(id);
+    return this.get(id, actor);
   }
 
   /** Un ticket pertenece a un solo problema: vincularlo a otro lo mueve. */
@@ -363,7 +387,36 @@ export class ProblemsService {
       ip: meta.ip,
       metadata: { ticketId },
     });
-    return this.get(id);
+    return this.get(id, actor);
+  }
+
+  /** Registra una acción (diagnóstico, prueba, cambio), con adjuntos. */
+  async addAction(
+    id: string,
+    input: AddWorkLogInput,
+    actor: AuthContext,
+    meta: RequestMeta,
+  ): Promise<ProblemDetail> {
+    const p = await this.prisma.problem.findUnique({ where: { id }, select: { id: true } });
+    if (!p) throw new NotFoundException('Problema inexistente');
+    await this.prisma.$transaction(async (tx) => {
+      const entry = await tx.problemAction.create({
+        data: { problemId: id, authorId: actor.user.id, body: input.body },
+      });
+      await this.files.link(input.attachmentIds, actor, { problemActionId: entry.id }, tx);
+      await this.audit.log(
+        {
+          action: 'problem.action.added',
+          actorId: actor.user.id,
+          entityType: 'problem',
+          entityId: id,
+          ip: meta.ip,
+          metadata: { entryId: entry.id, attachments: input.attachmentIds?.length ?? 0 },
+        },
+        tx,
+      );
+    });
+    return this.get(id, actor);
   }
 
   /** Tickets parecidos al problema que todavía no están vinculados. */

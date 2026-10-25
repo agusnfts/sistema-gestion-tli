@@ -41,21 +41,25 @@ model User {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
-  defaultArea      Area?             @relation(fields: [defaultAreaId], references: [id])
-  defaultWarehouse Warehouse?        @relation(fields: [defaultWarehouseId], references: [id])
-  roles            UserRole[]
-  sessions         Session[]
-  recoveryCodes    MfaRecoveryCode[]
-  auditEntries     AuditLog[]
-  requestedTickets Ticket[]          @relation("TicketRequester")
-  assignedTickets  Ticket[]          @relation("TicketAssignee")
-  ticketComments   TicketComment[]
-  timeEntries      TimeEntry[]
-  notifications    Notification[]
-  activityEvents   ActivityEvent[]
-  attachments      Attachment[]
-  ownedProblems    Problem[]         @relation("ProblemOwner")
-  createdProblems  Problem[]         @relation("ProblemCreator")
+  defaultArea         Area?                @relation(fields: [defaultAreaId], references: [id])
+  defaultWarehouse    Warehouse?           @relation(fields: [defaultWarehouseId], references: [id])
+  roles               UserRole[]
+  sessions            Session[]
+  recoveryCodes       MfaRecoveryCode[]
+  auditEntries        AuditLog[]
+  requestedTickets    Ticket[]             @relation("TicketRequester")
+  assignedTickets     Ticket[]             @relation("TicketAssignee")
+  ticketComments      TicketComment[]
+  timeEntries         TimeEntry[]
+  notifications       Notification[]
+  activityEvents      ActivityEvent[]
+  attachments         Attachment[]
+  ownedProblems       Problem[]            @relation("ProblemOwner")
+  createdProblems     Problem[]            @relation("ProblemCreator")
+  ownedImprovements   Improvement[]        @relation("ImprovementOwner")
+  createdImprovements Improvement[]        @relation("ImprovementCreator")
+  improvementComments ImprovementComment[]
+  problemActions      ProblemAction[]
 
   @@index([status])
 }
@@ -147,13 +151,14 @@ model AuditLog {
 }
 
 model Area {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String   @unique
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  users     User[]
-  tickets   Ticket[]
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String        @unique
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  users        User[]
+  tickets      Ticket[]
+  improvements Improvement[]
 }
 
 model Warehouse {
@@ -167,11 +172,12 @@ model Warehouse {
 }
 
 model Provider {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String   @unique
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String        @unique
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  improvements Improvement[]
 }
 
 // ---------------------------------------------------------------------------
@@ -267,6 +273,8 @@ model Ticket {
   resolutionCause    String?
   resolutionSolution String?
   problemId          String?                  @db.Uuid
+  // Mejora a la que se derivó (estado DERIVED_TO_IMPROVEMENT). Se cierra cuando la mejora termina.
+  improvementId      String?                  @db.Uuid
   // Columna generada (ver migración problems): asunto + descripción, en español sin acentos.
   searchVector       Unsupported("tsvector")? @default(dbgenerated("(setweight(to_tsvector('tli_spanish'::regconfig, COALESCE(subject, ''::text)), 'A'::\"char\") || setweight(to_tsvector('tli_spanish'::regconfig, COALESCE(description, ''::text)), 'B'::\"char\"))"))
   createdAt          DateTime                 @default(now())
@@ -280,12 +288,14 @@ model Ticket {
   timeEntries TimeEntry[]
   attachments Attachment[]
   problem     Problem?        @relation(fields: [problemId], references: [id], onDelete: SetNull)
+  improvement Improvement?    @relation(fields: [improvementId], references: [id], onDelete: SetNull)
 
   @@index([status, assigneeId])
   @@index([requesterId, createdAt])
   @@index([firstResponseDueAt])
   @@index([resolutionDueAt])
   @@index([problemId])
+  @@index([improvementId])
   @@index([searchVector], type: Gin)
   @@index([subject(ops: raw("gin_trgm_ops"))], type: Gin, map: "Ticket_subject_trgm_idx")
 }
@@ -382,27 +392,34 @@ enum ScanStatus {
 // Un adjunto se sube antes de crear el ticket o el comentario y después se vincula.
 // Los no vinculados se borran a las 24 h. Cada módulo que acepte adjuntos suma su FK.
 model Attachment {
-  id           String     @id @default(uuid()) @db.Uuid
+  id                   String     @id @default(uuid()) @db.Uuid
   // Ruta relativa dentro del almacenamiento: quarantine/<id> o clean/<id>.
-  storageKey   String     @unique
-  originalName String
-  mimeType     String
-  sizeBytes    Int
-  sha256       String
-  scanStatus   ScanStatus @default(PENDING_SCAN)
-  scanDetail   String?
-  uploadedById String     @db.Uuid
-  ticketId     String?    @db.Uuid
-  commentId    String?    @db.Uuid
-  createdAt    DateTime   @default(now())
-  scannedAt    DateTime?
+  storageKey           String     @unique
+  originalName         String
+  mimeType             String
+  sizeBytes            Int
+  sha256               String
+  scanStatus           ScanStatus @default(PENDING_SCAN)
+  scanDetail           String?
+  uploadedById         String     @db.Uuid
+  ticketId             String?    @db.Uuid
+  commentId            String?    @db.Uuid
+  // Adjuntos de las acciones registradas en una mejora o en un problema.
+  improvementCommentId String?    @db.Uuid
+  problemActionId      String?    @db.Uuid
+  createdAt            DateTime   @default(now())
+  scannedAt            DateTime?
 
-  uploadedBy User           @relation(fields: [uploadedById], references: [id])
-  ticket     Ticket?        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  comment    TicketComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  uploadedBy         User                @relation(fields: [uploadedById], references: [id])
+  ticket             Ticket?             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  comment            TicketComment?      @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  improvementComment ImprovementComment? @relation(fields: [improvementCommentId], references: [id], onDelete: Cascade)
+  problemAction      ProblemAction?      @relation(fields: [problemActionId], references: [id], onDelete: Cascade)
 
   @@index([ticketId])
   @@index([commentId])
+  @@index([improvementCommentId])
+  @@index([problemActionId])
   @@index([uploadedById, createdAt])
 }
 
@@ -437,11 +454,113 @@ model Problem {
   // Columna generada: título + descripción + causa raíz.
   searchVector      Unsupported("tsvector")? @default(dbgenerated("((setweight(to_tsvector('tli_spanish'::regconfig, COALESCE(title, ''::text)), 'A'::\"char\") || setweight(to_tsvector('tli_spanish'::regconfig, COALESCE(description, ''::text)), 'B'::\"char\")) || setweight(to_tsvector('tli_spanish'::regconfig, COALESCE(\"rootCause\", ''::text)), 'C'::\"char\"))"))
 
-  owner     User?    @relation("ProblemOwner", fields: [ownerId], references: [id])
-  createdBy User     @relation("ProblemCreator", fields: [createdById], references: [id])
-  tickets   Ticket[]
+  owner        User?           @relation("ProblemOwner", fields: [ownerId], references: [id])
+  createdBy    User            @relation("ProblemCreator", fields: [createdById], references: [id])
+  tickets      Ticket[]
+  improvements Improvement[]
+  actions      ProblemAction[]
 
   @@index([status])
   @@index([searchVector], type: Gin)
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Problem_title_trgm_idx")
+}
+
+// ---------------------------------------------------------------------------
+// Fase 4: mejoras WMS/TMS
+// ---------------------------------------------------------------------------
+
+enum ImprovementStatus {
+  IDEA
+  ANALYSIS
+  APPROVED
+  IN_DEVELOPMENT
+  TESTING
+  IMPLEMENTED
+  DISCARDED
+}
+
+enum ImprovementSystem {
+  WMS
+  TMS
+  TYT
+  ROUTING
+  OTHER
+}
+
+enum Currency {
+  ARS
+  USD
+}
+
+model Improvement {
+  id               String            @id @default(uuid()) @db.Uuid
+  // Se muestra como MEJ-0001.
+  number           Int               @unique @default(autoincrement())
+  title            String
+  system           ImprovementSystem
+  requestingAreaId String?           @db.Uuid
+  currentSituation String
+  proposal         String
+  expectedImpact   String?
+  // 1 bajo · 2 medio · 3 alto. La prioridad se deriva de impacto y esfuerzo salvo que IT la fije.
+  impact           Int               @default(2)
+  effort           Int               @default(2)
+  priority         Priority          @default(MEDIUM)
+  priorityIsManual Boolean           @default(false)
+  ownerId          String?           @db.Uuid
+  providerId       String?           @db.Uuid
+  currency         Currency          @default(ARS)
+  estimatedCost    Decimal?          @db.Decimal(14, 2)
+  actualCost       Decimal?          @db.Decimal(14, 2)
+  estimatedHours   Decimal?          @db.Decimal(8, 1)
+  actualHours      Decimal?          @db.Decimal(8, 1)
+  startDate        DateTime?         @db.Date
+  targetDate       DateTime?         @db.Date
+  completedAt      DateTime?
+  status           ImprovementStatus @default(IDEA)
+  // Obligatorio al implementar o descartar: se publica en los tickets derivados al cerrarlos.
+  closingMessage   String?
+  createdById      String            @db.Uuid
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  requestingArea Area?                @relation(fields: [requestingAreaId], references: [id])
+  owner          User?                @relation("ImprovementOwner", fields: [ownerId], references: [id])
+  provider       Provider?            @relation(fields: [providerId], references: [id])
+  createdBy      User                 @relation("ImprovementCreator", fields: [createdById], references: [id])
+  tickets        Ticket[]
+  problems       Problem[]
+  comments       ImprovementComment[]
+
+  @@index([status])
+  @@index([system, status])
+}
+
+// Acciones y avances que registra IT (con adjuntos). Siempre internos: el solicitante solo ve
+// el mensaje de cierre.
+model ImprovementComment {
+  id            String       @id @default(uuid()) @db.Uuid
+  improvementId String       @db.Uuid
+  authorId      String       @db.Uuid
+  body          String
+  createdAt     DateTime     @default(now())
+  improvement   Improvement  @relation(fields: [improvementId], references: [id], onDelete: Cascade)
+  author        User         @relation(fields: [authorId], references: [id])
+  attachments   Attachment[]
+
+  @@index([improvementId, createdAt])
+}
+
+// Acciones tomadas sobre un problema (diagnóstico, pruebas, cambios), con adjuntos. Internas.
+model ProblemAction {
+  id          String       @id @default(uuid()) @db.Uuid
+  problemId   String       @db.Uuid
+  authorId    String       @db.Uuid
+  body        String
+  createdAt   DateTime     @default(now())
+  problem     Problem      @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  author      User         @relation(fields: [authorId], references: [id])
+  attachments Attachment[]
+
+  @@index([problemId, createdAt])
 }

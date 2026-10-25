@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { paginationSchema, uuidSchema } from './common';
 import { TICKET_CATEGORIES, type TicketCategory, type TicketStatus } from '../tickets';
 import type { TicketActivity, UserRef } from './tickets';
+import type { ImprovementRef } from './improvements';
+import type { WorkLogEntry } from './work-log';
 
 export const PROBLEM_STATUSES = [
   'OPEN',
@@ -97,6 +99,10 @@ export type ProblemDetail = ProblemListItem & {
   resolvedAt: string | null;
   createdBy: UserRef;
   tickets: ProblemTicket[];
+  /** Mejoras que atacan este problema (solo si quien consulta puede ver mejoras). */
+  improvements: ImprovementRef[];
+  /** Acciones tomadas (diagnóstico, pruebas, cambios), con adjuntos. */
+  actions: WorkLogEntry[];
   activity: TicketActivity[];
 };
 

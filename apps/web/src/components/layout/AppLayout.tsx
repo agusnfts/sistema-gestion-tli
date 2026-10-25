@@ -12,6 +12,7 @@ import {
   Settings,
   Ticket,
   KeyRound,
+  Lightbulb,
   LogOut,
   Menu,
   Shield,
@@ -34,6 +35,7 @@ const MAIN_NAV: NavItem[] = [
   { to: '/', label: 'Inicio', icon: Home, permission: 'dashboard.view' },
   { to: '/tickets', label: 'Tickets', icon: Inbox, permission: 'ticket.read.all' },
   { to: '/problemas', label: 'Problemas', icon: Puzzle, permission: 'problem.read' },
+  { to: '/mejoras', label: 'Mejoras', icon: Lightbulb, permission: 'improvement.read' },
   { to: '/mis-tickets', label: 'Mis tickets', icon: Ticket, permission: 'ticket.read.own' },
   { to: '/tickets/nuevo', label: 'Nuevo ticket', icon: PlusCircle, permission: 'ticket.create' },
 ];

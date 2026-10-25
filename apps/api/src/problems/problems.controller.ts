@@ -11,11 +11,13 @@ import {
   Query,
 } from '@nestjs/common';
 import {
+  addWorkLogSchema,
   changeProblemStatusSchema,
   createProblemSchema,
   linkTicketsSchema,
   listProblemsQuerySchema,
   updateProblemSchema,
+  type AddWorkLogInput,
   type ChangeProblemStatusInput,
   type CreateProblemInput,
   type LinkTicketsInput,
@@ -49,8 +51,8 @@ export class ProblemsController {
 
   @Get(':id')
   @RequirePermission('problem.read')
-  get(@Param('id', ParseUUIDPipe) id: string) {
-    return this.problems.get(id);
+  get(@Param('id', ParseUUIDPipe) id: string, @CurrentAuth() auth: AuthContext) {
+    return this.problems.get(id, auth);
   }
 
   @Patch(':id')
@@ -96,6 +98,18 @@ export class ProblemsController {
     @ReqMeta() meta: RequestMeta,
   ) {
     return this.problems.unlink(id, ticketId, auth, meta);
+  }
+
+  @Post(':id/actions')
+  @HttpCode(200)
+  @RequirePermission('problem.manage')
+  addAction(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(addWorkLogSchema)) body: AddWorkLogInput,
+    @CurrentAuth() auth: AuthContext,
+    @ReqMeta() meta: RequestMeta,
+  ) {
+    return this.problems.addAction(id, body, auth, meta);
   }
 
   @Get(':id/suggestions')

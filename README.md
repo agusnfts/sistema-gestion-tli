@@ -13,7 +13,8 @@ La documentación de diseño está en [`docs/`](docs/README.md) (arquitectura, m
 | 2a   | Ticketera: formulario guiado, estados, SLA, notificaciones, Mis tickets, bandeja de IT   | ✅        |
 | 2b   | Adjuntos con antivirus, worker (BullMQ), mail opcional                                   | ✅        |
 | 3    | Problemas: agrupar tickets por causa raíz, resolución en bloque, sugerencia de similares | ✅        |
-| 4–8  | Mejoras, clientes/integraciones, conocimiento, dashboard, producción                     | Pendiente |
+| 4    | Mejoras: kanban, derivación de tickets y problemas, cierre en bloque con mensaje         | ✅        |
+| 5–8  | Clientes/integraciones, conocimiento, dashboard, producción                              | Pendiente |
 
 ## Stack
 

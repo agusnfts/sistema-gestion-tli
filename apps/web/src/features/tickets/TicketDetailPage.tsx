@@ -28,6 +28,7 @@ import { Alert, Badge, Card, Spinner } from '@/components/ui/misc';
 import { Dialog } from '@/components/ui/dialog';
 import { PriorityLabel, SlaBadge, StatusBadge } from './ui';
 import { TicketProblemPanel } from '@/features/problems/TicketProblemPanel';
+import { TicketImprovementPanel } from '@/features/improvements/TicketImprovementPanel';
 import { useHasPermission } from '@/lib/auth';
 import {
   AttachmentList,
@@ -246,6 +247,7 @@ export function TicketDetailPage() {
           ) : (
             <RequesterPanel ticket={t} />
           )}
+          {t.canManage && can('improvement.read') && <TicketImprovementPanel ticket={t} />}
           {t.canManage && can('problem.read') && <TicketProblemPanel ticket={t} />}
           {t.timeEntries && <TimePanel ticket={t} onSaved={setData} />}
         </aside>

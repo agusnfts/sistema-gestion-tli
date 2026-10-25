@@ -38,6 +38,14 @@ export const AUDIT_ACTIONS = [
   'problem.status.changed',
   'problem.tickets.linked',
   'problem.tickets.unlinked',
+  'problem.action.added',
+  'improvement.created',
+  'improvement.updated',
+  'improvement.status.changed',
+  'improvement.tickets.linked',
+  'improvement.tickets.unlinked',
+  'improvement.problems.linked',
+  'improvement.action.added',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -81,4 +89,12 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'problem.status.changed': 'Cambio de estado de problema',
   'problem.tickets.linked': 'Tickets vinculados a un problema',
   'problem.tickets.unlinked': 'Ticket desvinculado de un problema',
+  'problem.action.added': 'Acción registrada en un problema',
+  'improvement.created': 'Mejora creada',
+  'improvement.updated': 'Mejora modificada',
+  'improvement.status.changed': 'Cambio de estado de mejora',
+  'improvement.tickets.linked': 'Tickets derivados a una mejora',
+  'improvement.tickets.unlinked': 'Ticket quitado de una mejora',
+  'improvement.problems.linked': 'Problemas vinculados a una mejora',
+  'improvement.action.added': 'Acción registrada en una mejora',
 };

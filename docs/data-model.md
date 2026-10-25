@@ -142,6 +142,16 @@ Un ticket pertenece como máximo a un problema (`Ticket.problemId`).
 
 Estados: `IDEA` → `ANALYSIS` → `APPROVED` → `IN_DEVELOPMENT` → `TESTING` → `IMPLEMENTED` \| `DISCARDED`. Al pasar a un estado final se exige `closingMessage`, que se publica como comentario público en todos los tickets vinculados al cerrarlos.
 
+Implementación (Fase 4):
+
+- Un ticket se deriva a **una** mejora: `Ticket.improvementId` en lugar de la tabla `ImprovementTicket`, igual que `Ticket.problemId`. Así el cierre en bloque no tiene ambigüedad. `ImprovementProblem` es una relación N:M implícita de Prisma.
+- `system` admite `WMS`, `TMS`, `TYT`, `ROUTING` y `OTHER` (los mismos sistemas de la ticketera).
+- Solo se derivan tickets abiertos. Quitar un ticket de una mejora en curso lo devuelve a `IN_PROGRESS`.
+- El tiempo en un estado derivado cuenta como pausa del SLA: si el ticket vuelve, no se le cobra. Derivar cuenta como primera respuesta.
+- Prioridad sugerida = impacto × (4 − esfuerzo): ≥ 6 Alta, ≥ 3 Media, si no Baja. "Crítica" solo a mano (`priorityIsManual`).
+- Acciones realizadas: `ImprovementComment` (mejoras) y `ProblemAction` (problemas) registran qué se hizo, con adjuntos (`Attachment.improvementCommentId` / `Attachment.problemActionId`, mismo flujo de antivirus que los tickets). Son internas: los adjuntos solo los baja quien tiene `improvement.read` o `problem.read`.
+- Los estados finales son terminales. `ImprovementClient` e `ImprovementIntegration` llegan en la Fase 5.
+
 ## Clientes e integraciones
 
 | Entidad               | Campos                                                                                                                                                                                                                                                                                                                                                                               |

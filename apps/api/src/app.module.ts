@@ -19,6 +19,7 @@ import { QueueModule } from './queue/queue.module';
 import { FilesModule } from './files/files.module';
 import { SearchModule } from './search/similarity.service';
 import { ProblemsModule } from './problems/problems.module';
+import { ImprovementsModule } from './improvements/improvements.module';
 import { HealthController } from './health/health.controller';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 
@@ -70,6 +71,7 @@ import { HttpExceptionFilter } from './common/http-exception.filter';
     FilesModule,
     SearchModule,
     ProblemsModule,
+    ImprovementsModule,
   ],
   controllers: [HealthController],
   providers: [
