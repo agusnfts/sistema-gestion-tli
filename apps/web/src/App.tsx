@@ -24,6 +24,9 @@ import { ProblemDetailPage } from '@/features/problems/ProblemDetailPage';
 import { ImprovementsPage } from '@/features/improvements/ImprovementsPage';
 import { ImprovementDetailPage } from '@/features/improvements/ImprovementDetailPage';
 import { ClientsPage } from '@/features/clients/ClientsPage';
+import { KnowledgePage } from '@/features/knowledge/KnowledgePage';
+import { ArticlePage } from '@/features/knowledge/ArticlePage';
+import { ArticleEditorPage } from '@/features/knowledge/ArticleEditorPage';
 import { ClientDetailPage } from '@/features/clients/ClientDetailPage';
 import { IntegrationsPage } from '@/features/integrations/IntegrationsPage';
 import { IntegrationDetailPage } from '@/features/integrations/IntegrationDetailPage';
@@ -139,6 +142,38 @@ const router = createBrowserRouter([
             element: (
               <RequirePermission permission="improvement.read">
                 <ImprovementDetailPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'conocimiento',
+            element: (
+              <RequirePermission permission="kb.read.public">
+                <KnowledgePage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'conocimiento/articulos/nuevo',
+            element: (
+              <RequirePermission permission="kb.manage">
+                <ArticleEditorPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'conocimiento/articulos/:id',
+            element: (
+              <RequirePermission permission="kb.read.public">
+                <ArticlePage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'conocimiento/articulos/:id/editar',
+            element: (
+              <RequirePermission permission="kb.manage">
+                <ArticleEditorPage />
               </RequirePermission>
             ),
           },

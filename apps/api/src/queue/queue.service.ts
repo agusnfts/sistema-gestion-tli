@@ -3,7 +3,8 @@ import { Queue, type ConnectionOptions } from 'bullmq';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 
 /** Jobs en segundo plano (ADR 0014). */
-export type JobName = 'files.scan' | 'email.send' | 'maintenance.sla' | 'maintenance.cleanup';
+export type JobName =
+  'files.scan' | 'documents.extract' | 'email.send' | 'maintenance.sla' | 'maintenance.cleanup';
 type Handler = (data: Record<string, unknown>) => Promise<void>;
 
 export const QUEUE_NAME = 'tli';

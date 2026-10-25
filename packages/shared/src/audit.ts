@@ -60,6 +60,10 @@ export const AUDIT_ACTIONS = [
   'integration.action.added',
   'document.created',
   'document.version.added',
+  'document.updated',
+  'article.created',
+  'article.version.saved',
+  'article.status.changed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -125,4 +129,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'integration.action.added': 'Acción registrada en una integración',
   'document.created': 'Documento subido',
   'document.version.added': 'Nueva versión de documento',
+  'document.updated': 'Documento modificado',
+  'article.created': 'Artículo creado',
+  'article.version.saved': 'Nueva versión de artículo',
+  'article.status.changed': 'Artículo publicado, archivado o vuelto a borrador',
 };

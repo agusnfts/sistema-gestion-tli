@@ -22,10 +22,11 @@ import {
 } from '@tli/shared';
 import { api, ApiError } from '@/lib/api';
 import { cn, formatDateTime } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { Button, buttonClasses } from '@/components/ui/button';
 import { Field, Input, Select } from '@/components/ui/form';
 import { Alert, Badge, Card, Spinner } from '@/components/ui/misc';
 import { Dialog } from '@/components/ui/dialog';
+import { isRichTextEmpty, RichText, RichTextEditor } from '@/components/ui/rich-text';
 import { PriorityLabel, SlaBadge, StatusBadge } from './ui';
 import { TicketProblemPanel } from '@/features/problems/TicketProblemPanel';
 import { TicketImprovementPanel } from '@/features/improvements/TicketImprovementPanel';
@@ -217,7 +218,7 @@ export function TicketDetailPage() {
                         )}
                         <span>{formatDateTime(item.c.createdAt)}</span>
                       </p>
-                      <p className="mt-2 whitespace-pre-wrap text-sm">{item.c.body}</p>
+                      <RichText value={item.c.body} className="mt-2 text-sm" />
                       <AttachmentList items={item.c.attachments} />
                     </Card>
                   </li>
@@ -250,6 +251,21 @@ export function TicketDetailPage() {
           ) : (
             <RequesterPanel ticket={t} />
           )}
+          {t.canManage &&
+            can('kb.manage') &&
+            (t.status === 'RESOLVED' || t.status === 'CLOSED') && (
+              <Card className="p-4 text-sm">
+                <p className="mb-2 text-xs text-muted">
+                  Si le puede servir a alguien más, pasalo a la base de conocimiento.
+                </p>
+                <Link
+                  to={`/conocimiento/articulos/nuevo?ticket=${t.id}`}
+                  className={buttonClasses('secondary', 'sm')}
+                >
+                  Generar artículo
+                </Link>
+              </Card>
+            )}
           {t.canManage && can('integration.read') && <TicketIntegrationPanel ticket={t} />}
           {t.canManage && can('improvement.read') && <TicketImprovementPanel ticket={t} />}
           {t.canManage && can('problem.read') && <TicketProblemPanel ticket={t} />}
@@ -536,7 +552,8 @@ function ReplyBox({
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!body.trim()) return m.setError('Escribí un comentario');
+    if (isRichTextEmpty(body) && !attachments.ids.length)
+      return m.setError('Escribí un comentario');
     m.mutate({
       path: '/comments',
       body: { body, visibility: internal ? 'INTERNAL' : 'PUBLIC', attachmentIds: attachments.ids },
@@ -572,16 +589,13 @@ function ReplyBox({
           ))}
         </div>
       )}
-      <label htmlFor="reply" className="sr-only">
-        Comentario
-      </label>
-      <textarea
+      <RichTextEditor
         id="reply"
-        rows={4}
-        className={cn(textareaClass, internal && 'bg-warning-soft')}
+        label="Comentario"
+        className={cn(internal && '[&_.ProseMirror]:bg-warning-soft')}
         placeholder={internal ? 'Solo lo ve el equipo de IT' : 'Escribí tu respuesta'}
         value={body}
-        onChange={(e) => setBody(e.target.value)}
+        onChange={setBody}
       />
       <AttachmentPicker state={attachments} compact />
       <Button type="submit" loading={m.isPending} disabled={attachments.uploading}>

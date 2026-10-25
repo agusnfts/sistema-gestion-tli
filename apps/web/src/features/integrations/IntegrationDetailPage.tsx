@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox, Field, Input, Select } from '@/components/ui/form';
 import { Alert, Card, Spinner } from '@/components/ui/misc';
 import { Dialog } from '@/components/ui/dialog';
+import { isRichTextEmpty, RichText, RichTextEditor } from '@/components/ui/rich-text';
 import { useCatalog } from '@/features/admin/api-hooks';
 import { processList, systemList } from './IntegrationsPage';
 import { AddTicketsCard } from '@/features/tickets/AddTicketsCard';
@@ -44,7 +45,6 @@ import {
   CloseIntegrationDialog,
   IntegrationScopeFields,
   IntegrationStatusBadge,
-  textareaClass,
   useClientOptions,
 } from './components';
 
@@ -321,12 +321,11 @@ function HowItWorksCard({
       )}
       {editing ? (
         <div className="space-y-2">
-          <textarea
-            aria-label="Cómo funciona"
-            rows={16}
-            className={cn(textareaClass, 'font-mono text-xs leading-relaxed')}
+          <RichTextEditor
+            label="Cómo funciona"
+            minHeight="18rem"
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={setDraft}
           />
           <div className="flex gap-2">
             <Button size="sm" loading={save.isPending} onClick={() => save.mutate()}>
@@ -345,9 +344,13 @@ function HowItWorksCard({
           </div>
         </div>
       ) : (
-        <pre className="whitespace-pre-wrap rounded-md bg-bg p-3 font-sans text-sm leading-relaxed">
-          {i.howItWorks.trim() || 'Sin completar.'}
-        </pre>
+        <div className="rounded-md bg-bg p-3 text-sm">
+          {isRichTextEmpty(i.howItWorks) ? (
+            <p className="text-muted">Sin completar.</p>
+          ) : (
+            <RichText value={i.howItWorks} />
+          )}
+        </div>
       )}
       {history && (
         <Dialog
@@ -363,9 +366,9 @@ function HowItWorksCard({
                 <p className="mb-1 text-xs text-muted">
                   Reemplazada por {r.author.fullName} · {formatDateTime(r.createdAt)}
                 </p>
-                <pre className="whitespace-pre-wrap rounded-md bg-bg p-3 font-sans text-xs">
-                  {r.howItWorks || '(vacío)'}
-                </pre>
+                <div className="rounded-md bg-bg p-3 text-xs">
+                  {isRichTextEmpty(r.howItWorks) ? '(vacío)' : <RichText value={r.howItWorks} />}
+                </div>
               </li>
             ))}
           </ol>

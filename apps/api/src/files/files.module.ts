@@ -24,6 +24,6 @@ import { ANTIVIRUS, ClamdScanner, EicarScanner } from './antivirus';
           : new ClamdScanner(c.antivirus.host, c.antivirus.port),
     },
   ],
-  exports: [FilesService],
+  exports: [FilesService, STORAGE],
 })
 export class FilesModule {}

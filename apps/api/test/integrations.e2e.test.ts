@@ -128,7 +128,7 @@ describe('integraciones', () => {
       counterpartLabel: 'Integra SA',
       ticketCount: 1,
     });
-    expect(created.body.howItWorks).toContain('Origen y destino:');
+    expect(created.body.howItWorks).toContain('<h3>Origen y destino</h3>');
 
     const asUser = await user.get(`/api/tickets/${ticket.id}`).expect(200);
     expect(asUser.body.status).toBe('DERIVED_TO_INTEGRATION');
@@ -143,7 +143,7 @@ describe('integraciones', () => {
       })
       .expect(200);
     expect(how.body.howItWorks).toContain('cada 15 minutos');
-    expect(how.body.revisions[0].howItWorks).toContain('Origen y destino:');
+    expect(how.body.revisions[0].howItWorks).toContain('<h3>Origen y destino</h3>');
 
     // Dos cotizaciones; la elegida define el costo estimado.
     const providers = await ctx.prisma.provider.findMany({ take: 2, orderBy: { name: 'asc' } });

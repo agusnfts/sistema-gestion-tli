@@ -219,6 +219,14 @@ Implementación (Fase 5):
 
 Los fragmentos se reemplazan completos por versión (borrar + insertar en transacción). Ver [ADR 0011](adr/0011-ai-readiness-chunks.md).
 
+Implementación (Fase 6):
+
+- Etiquetas como `String[]` en `Article.tags` y `Document.tags` (sin tablas `Tag`); alcanza para filtrar y buscar.
+- `Document` suma `category`, `system` y `tags`; `DocumentVersion` suma `extractionStatus`, `extractionDetail`, `ocrUsed`, `pagesWithoutText` y `pageCount`.
+- `ContentChunk.searchVector` es una columna generada (`tli_spanish`) con índice GIN. Solo se indexa la versión vigente de artículos y documentos, y el "Cómo funciona" de cada integración (siempre interno).
+- La búsqueda aplica en SQL la visibilidad y los permisos (artículos publicados para quien no gestiona la base; documentos públicos, internos o vinculados a integraciones/clientes según permisos).
+- Texto enriquecido (ADR 0009) en artículos, "Cómo funciona" y comentarios de tickets. El texto plano anterior se sigue mostrando tal cual; el HTML siempre pasa por el sanitizador del servidor. Las descripciones de tickets, problemas y mejoras siguen en texto plano.
+
 ## Índices relevantes
 
 - `Ticket(status, assigneeId)`, `Ticket(requesterId, createdAt)`, `Ticket(resolutionDueAt) WHERE status IN (...)`.

@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { FilesService, toAttachmentInfo } from '../files/files.service';
+import { IndexingService } from '../knowledge/indexing.service';
 import type { AuthContext, RequestMeta } from '../common/auth-context';
 
 const userRef = { select: { id: true, fullName: true } } as const;
@@ -31,6 +32,10 @@ function toVersion(v: VersionRow) {
     version: v.version,
     note: v.note,
     file: v.attachment ? toAttachmentInfo(v.attachment) : null,
+    extractionStatus: v.extractionStatus,
+    ocrUsed: v.ocrUsed,
+    pagesWithoutText: v.pagesWithoutText,
+    pageCount: v.pageCount,
     uploadedBy: v.uploadedBy,
     createdAt: v.createdAt.toISOString(),
   };
@@ -46,6 +51,7 @@ export class DocumentsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly files: FilesService,
+    private readonly indexing: IndexingService,
   ) {}
 
   async listFor(entityType: DocumentEntity, entityId: string): Promise<DocumentItem[]> {
@@ -78,7 +84,7 @@ export class DocumentsService {
     actor: AuthContext,
     meta: RequestMeta,
   ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
+    const versionId = await this.prisma.$transaction(async (tx) => {
       const doc = await tx.document.create({
         data: {
           title: input.title,
@@ -110,7 +116,10 @@ export class DocumentsService {
         },
         tx,
       );
+      return version.id;
     });
+    // El texto se extrae e indexa en el worker (si el antivirus ya lo liberó; si no, al liberarlo).
+    await this.indexing.requestExtraction(versionId);
   }
 
   /** Sube una versión nueva; queda como la vigente y las anteriores se conservan. */
@@ -134,7 +143,7 @@ export class DocumentsService {
     if (!canManage) throw new ForbiddenException('No podés modificar este documento');
 
     const next = Math.max(0, ...doc.versions.map((v) => v.version)) + 1;
-    await this.prisma.$transaction(async (tx) => {
+    const versionId = await this.prisma.$transaction(async (tx) => {
       const version = await tx.documentVersion.create({
         data: {
           documentId: id,
@@ -156,6 +165,8 @@ export class DocumentsService {
         },
         tx,
       );
+      return version.id;
     });
+    await this.indexing.requestExtraction(versionId);
   }
 }

@@ -34,6 +34,7 @@ import {
   type SimilarResults,
 } from '@tli/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { htmlToPlainText, isHtml, sanitizeRichText } from '../common/rich-text';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -758,6 +759,11 @@ export class TicketsService {
     if (input.visibility === 'INTERNAL' && !actor.permissions.has('ticket.comment.internal')) {
       throw new ForbiddenException('No podés escribir comentarios internos');
     }
+    // Del editor llega HTML (se sanitiza siempre); el texto plano se guarda tal cual.
+    const body = isHtml(input.body) ? sanitizeRichText(input.body) : input.body.trim();
+    if (!htmlToPlainText(body) && !input.attachmentIds?.length) {
+      throw new BadRequestException('Escribí un comentario');
+    }
     const now = new Date();
     const isStaffReply = !isRequester && input.visibility === 'PUBLIC';
 
@@ -766,7 +772,7 @@ export class TicketsService {
         data: {
           ticketId: id,
           authorId: actor.user.id,
-          body: input.body,
+          body,
           visibility: input.visibility,
           createdAt: now,
         },
@@ -804,7 +810,7 @@ export class TicketsService {
           input.visibility === 'INTERNAL'
             ? `Nota interna en ${number}`
             : `Nueva respuesta en ${number}`,
-        body: input.body.slice(0, 140),
+        body: htmlToPlainText(body).slice(0, 140),
         link: link(id),
         entityType: 'ticket',
         entityId: id,

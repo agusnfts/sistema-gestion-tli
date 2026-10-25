@@ -62,6 +62,10 @@ export type DocumentVersionItem = {
   version: number;
   note: string | null;
   file: AttachmentInfo | null;
+  extractionStatus: 'PENDING' | 'DONE' | 'FAILED' | 'SKIPPED';
+  ocrUsed: boolean;
+  pagesWithoutText: number;
+  pageCount: number | null;
   uploadedBy: UserRef;
   createdAt: string;
 };

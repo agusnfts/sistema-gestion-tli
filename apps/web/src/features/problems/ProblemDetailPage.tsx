@@ -15,7 +15,7 @@ import {
 import { api } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
 import { useHasPermission } from '@/lib/auth';
-import { Button } from '@/components/ui/button';
+import { Button, buttonClasses } from '@/components/ui/button';
 import { Checkbox, Field, Select } from '@/components/ui/form';
 import { Alert, Card, Spinner } from '@/components/ui/misc';
 import { Dialog } from '@/components/ui/dialog';
@@ -396,6 +396,14 @@ export function ProblemDetailPage() {
             </Field>
             {p.resolvedAt && (
               <p className="text-xs text-muted">Resuelto el {formatDateTime(p.resolvedAt)}</p>
+            )}
+            {p.status === 'RESOLVED' && can('kb.manage') && (
+              <Link
+                to={`/conocimiento/articulos/nuevo?problem=${p.id}`}
+                className={buttonClasses('secondary', 'sm')}
+              >
+                Generar artículo
+              </Link>
             )}
           </Card>
         </aside>

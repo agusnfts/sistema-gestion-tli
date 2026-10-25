@@ -100,21 +100,17 @@ export const NOT_DONE_REASON_LABELS: Record<NotDoneReason, string> = {
   OTHER: 'Otro motivo',
 };
 
-/** Plantilla inicial de "Cómo funciona". */
+/** Plantilla inicial de "Cómo funciona" (HTML del editor: un título por sección). */
 export const HOW_IT_WORKS_TEMPLATE = [
-  'Flujo:',
-  '',
-  'Origen y destino:',
-  '',
-  'Archivo:',
-  '',
-  'Validaciones y errores:',
-  '',
-  'Monitoreo:',
-  '',
-  'Contactos:',
-  '',
-].join('\n');
+  'Flujo',
+  'Origen y destino',
+  'Archivo',
+  'Validaciones y errores',
+  'Monitoreo',
+  'Contactos',
+]
+  .map((t) => `<h3>${t}</h3><p></p>`)
+  .join('');
 
 export function formatIntegrationCode(n: number): string {
   return `INT-${String(n).padStart(4, '0')}`;

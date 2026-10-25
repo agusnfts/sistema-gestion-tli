@@ -67,6 +67,8 @@ model User {
   integrationQuotes    IntegrationQuote[]
   documents            Document[]
   documentVersions     DocumentVersion[]
+  articles             Article[]
+  articleVersions      ArticleVersion[]
 
   @@index([status])
 }
@@ -301,6 +303,7 @@ model Ticket {
   problem     Problem?        @relation(fields: [problemId], references: [id], onDelete: SetNull)
   improvement Improvement?    @relation(fields: [improvementId], references: [id], onDelete: SetNull)
   integration Integration?    @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  articles    Article[]
 
   @@index([status, assigneeId])
   @@index([requesterId, createdAt])
@@ -481,6 +484,7 @@ model Problem {
   tickets      Ticket[]
   improvements Improvement[]
   actions      ProblemAction[]
+  articles     Article[]
 
   @@index([status])
   @@index([searchVector], type: Gin)
@@ -745,15 +749,16 @@ model Integration {
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
 
-  client    Client?               @relation(fields: [clientId], references: [id])
+  client        Client?               @relation(fields: [clientId], references: [id])
   // Plataformas del otro lado: e-commerce (MELI, Tienda Nube…) o ERP (SAP, Odoo…).
-  platforms Platform[]
-  owner     User?                 @relation("IntegrationOwner", fields: [ownerId], references: [id])
-  createdBy User                  @relation("IntegrationCreator", fields: [createdById], references: [id])
-  tickets   Ticket[]
-  revisions IntegrationRevision[]
-  quotes    IntegrationQuote[]
-  actions   IntegrationAction[]
+  platforms     Platform[]
+  owner         User?                 @relation("IntegrationOwner", fields: [ownerId], references: [id])
+  createdBy     User                  @relation("IntegrationCreator", fields: [createdById], references: [id])
+  tickets       Ticket[]
+  revisions     IntegrationRevision[]
+  quotes        IntegrationQuote[]
+  actions       IntegrationAction[]
+  contentChunks ContentChunk[]
 
   @@index([status])
   @@index([clientId])
@@ -834,6 +839,10 @@ model Document {
   title            String
   description      String?
   visibility       DocumentVisibility @default(INTERNAL)
+  category         KnowledgeCategory  @default(OTHER)
+  // Sistema al que aplica (WMS, TMS…); null = general.
+  system           String?
+  tags             String[]           @default([])
   currentVersionId String?            @unique @db.Uuid
   authorId         String             @db.Uuid
   createdAt        DateTime           @default(now())
@@ -846,16 +855,24 @@ model Document {
 }
 
 model DocumentVersion {
-  id           String      @id @default(uuid()) @db.Uuid
-  documentId   String      @db.Uuid
-  version      Int
-  note         String?
-  uploadedById String      @db.Uuid
-  createdAt    DateTime    @default(now())
-  document     Document    @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Cascade)
-  uploadedBy   User        @relation(fields: [uploadedById], references: [id])
-  attachment   Attachment?
-  currentOf    Document?   @relation("CurrentVersion")
+  id               String           @id @default(uuid()) @db.Uuid
+  documentId       String           @db.Uuid
+  version          Int
+  note             String?
+  // Extracción de texto (worker): PENDING hasta que el antivirus libera el archivo.
+  extractionStatus ExtractionStatus @default(PENDING)
+  extractionDetail String?
+  ocrUsed          Boolean          @default(false)
+  // Páginas escaneadas que no se pudieron leer porque no hay OCR instalado.
+  pagesWithoutText Int              @default(0)
+  pageCount        Int?
+  uploadedById     String           @db.Uuid
+  createdAt        DateTime         @default(now())
+  chunks           ContentChunk[]
+  document         Document         @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Cascade)
+  uploadedBy       User             @relation(fields: [uploadedById], references: [id])
+  attachment       Attachment?
+  currentOf        Document?        @relation("CurrentVersion")
 
   @@unique([documentId, version])
 }
@@ -888,4 +905,118 @@ model Platform {
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
   integrations Integration[]
+}
+
+// ---------------------------------------------------------------------------
+// Fase 6: base de conocimiento
+// ---------------------------------------------------------------------------
+
+enum KnowledgeCategory {
+  WMS
+  TMS
+  INTEGRATIONS
+  PROCEDURES
+  FREQUENT_ERRORS
+  OTHER
+}
+
+enum ArticleTemplate {
+  FREE
+  ERROR_SHEET
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ExtractionStatus {
+  PENDING
+  DONE
+  FAILED
+  SKIPPED
+}
+
+enum ChunkSource {
+  ARTICLE
+  DOCUMENT
+  INTEGRATION
+}
+
+model Article {
+  id               String             @id @default(uuid()) @db.Uuid
+  // Se muestra como KB-0001.
+  number           Int                @unique @default(autoincrement())
+  category         KnowledgeCategory
+  template         ArticleTemplate    @default(FREE)
+  // PUBLIC: lo ven todos los usuarios (una vez publicado). INTERNAL: solo IT.
+  visibility       DocumentVisibility @default(INTERNAL)
+  status           ArticleStatus      @default(DRAFT)
+  tags             String[]           @default([])
+  currentVersionId String?            @unique @db.Uuid
+  sourceTicketId   String?            @db.Uuid
+  sourceProblemId  String?            @db.Uuid
+  authorId         String             @db.Uuid
+  publishedAt      DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  author         User             @relation(fields: [authorId], references: [id])
+  currentVersion ArticleVersion?  @relation("ArticleCurrentVersion", fields: [currentVersionId], references: [id])
+  versions       ArticleVersion[] @relation("ArticleVersions")
+  sourceTicket   Ticket?          @relation(fields: [sourceTicketId], references: [id], onDelete: SetNull)
+  sourceProblem  Problem?         @relation(fields: [sourceProblemId], references: [id], onDelete: SetNull)
+
+  @@index([status, visibility])
+}
+
+// Cada guardado es una versión: el artículo apunta a la vigente y el historial queda completo.
+model ArticleVersion {
+  id            String         @id @default(uuid()) @db.Uuid
+  articleId     String         @db.Uuid
+  version       Int
+  title         String
+  // HTML sanitizado en el servidor (ADR 0009).
+  body          String         @default("")
+  // Ficha de error: síntoma, causa, solución y pasos.
+  errorSymptom  String?
+  errorCause    String?
+  errorSolution String?
+  errorSteps    String?
+  authorId      String         @db.Uuid
+  createdAt     DateTime       @default(now())
+  article       Article        @relation("ArticleVersions", fields: [articleId], references: [id], onDelete: Cascade)
+  author        User           @relation(fields: [authorId], references: [id])
+  currentOf     Article?       @relation("ArticleCurrentVersion")
+  chunks        ContentChunk[]
+
+  @@unique([articleId, version])
+}
+
+// Fragmentos de texto para búsqueda (y a futuro, IA: ADR 0011). Se reemplazan completos por
+// versión. Un fragmento nunca cruza páginas, para poder citar la página.
+model ContentChunk {
+  id                String                   @id @default(uuid()) @db.Uuid
+  sourceType        ChunkSource
+  articleVersionId  String?                  @db.Uuid
+  documentVersionId String?                  @db.Uuid
+  integrationId     String?                  @db.Uuid
+  pageNumber        Int?
+  ordinal           Int
+  text              String
+  visibility        DocumentVisibility
+  contentHash       String
+  tokenCount        Int
+  searchVector      Unsupported("tsvector")? @default(dbgenerated("to_tsvector('tli_spanish'::regconfig, text)"))
+  createdAt         DateTime                 @default(now())
+
+  articleVersion  ArticleVersion?  @relation(fields: [articleVersionId], references: [id], onDelete: Cascade)
+  documentVersion DocumentVersion? @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
+  integration     Integration?     @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([searchVector], type: Gin)
+  @@index([articleVersionId])
+  @@index([documentVersionId])
+  @@index([integrationId])
 }

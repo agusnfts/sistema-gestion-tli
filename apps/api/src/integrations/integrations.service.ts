@@ -25,6 +25,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { TicketsService } from '../tickets/tickets.service';
 import { FilesService, toAttachmentInfo } from '../files/files.service';
 import { DocumentsService } from '../documents/documents.service';
+import { IndexingService } from '../knowledge/indexing.service';
+import { sanitizeRichText } from '../common/rich-text';
 import type { AuthContext, RequestMeta } from '../common/auth-context';
 
 /** "Integraciones pendientes": todo lo que no está finalizado ni descartado. */
@@ -64,6 +66,7 @@ export class IntegrationsService {
     private readonly tickets: TicketsService,
     private readonly files: FilesService,
     private readonly documents: DocumentsService,
+    private readonly indexing: IndexingService,
   ) {}
 
   private toListItem(i: IntegrationRow): IntegrationListItem {
@@ -346,6 +349,7 @@ export class IntegrationsService {
       return i;
     });
     await this.derive(integration.id, integration.number, ticketIds, actor, meta);
+    await this.indexing.indexIntegration(integration.id);
     return this.get(integration.id);
   }
 
@@ -424,13 +428,14 @@ export class IntegrationsService {
     return this.get(id);
   }
 
-  /** Guarda "Cómo funciona"; la versión anterior queda en el historial. */
+  /** Guarda "Cómo funciona" (HTML sanitizado); la versión anterior queda en el historial. */
   async setHowItWorks(
     id: string,
-    howItWorks: string,
+    raw: string,
     actor: AuthContext,
     meta: RequestMeta,
   ): Promise<IntegrationDetail> {
+    const howItWorks = sanitizeRichText(raw);
     const i = await this.prisma.integration.findUnique({ where: { id } });
     if (!i) throw new NotFoundException('Integración inexistente');
     if (i.howItWorks === howItWorks) return this.get(id);
@@ -450,6 +455,7 @@ export class IntegrationsService {
         tx,
       );
     });
+    await this.indexing.indexIntegration(id);
     return this.get(id);
   }
 

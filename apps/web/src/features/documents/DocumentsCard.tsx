@@ -19,6 +19,7 @@ import {
   useAttachmentUploads,
 } from '@/features/attachments/attachments';
 import { errorText } from '@/features/problems/components';
+import { ExtractionBadge } from '@/features/knowledge/components';
 
 /**
  * Documentos de un cliente o una integración (biblioteca básica): cada documento tiene
@@ -66,6 +67,12 @@ export function DocumentsCard({
                     <FileText className="size-4 shrink-0 text-muted" aria-hidden />
                     {d.title}
                     {d.current && <span className="text-xs text-muted">v{d.current.version}</span>}
+                    {d.current && d.current.extractionStatus !== 'DONE' && (
+                      <ExtractionBadge
+                        status={d.current.extractionStatus}
+                        pagesWithoutText={d.current.pagesWithoutText}
+                      />
+                    )}
                   </p>
                   <p className="mt-0.5 text-xs text-muted">
                     <Badge>{DOCUMENT_LINK_TYPE_LABELS[d.linkType]}</Badge>{' '}

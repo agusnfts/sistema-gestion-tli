@@ -23,6 +23,8 @@ import { ImprovementsModule } from './improvements/improvements.module';
 import { DocumentsModule } from './documents/documents.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { ClientsModule } from './clients/clients.module';
+import { IndexingModule } from './knowledge/indexing.module';
+import { KnowledgeModule } from './knowledge/knowledge.module';
 import { HealthController } from './health/health.controller';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 
@@ -78,6 +80,8 @@ import { HttpExceptionFilter } from './common/http-exception.filter';
     DocumentsModule,
     IntegrationsModule,
     ClientsModule,
+    IndexingModule,
+    KnowledgeModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -149,6 +149,14 @@ export class FilesService implements OnModuleInit {
         where: { id },
         data: { storageKey: key, scanStatus: 'CLEAN', scannedAt: new Date() },
       });
+      // Si es la versión de un documento de la biblioteca, se extrae e indexa su texto.
+      if (a.documentVersionId) {
+        await this.queue.add(
+          'documents.extract',
+          { documentVersionId: a.documentVersionId },
+          { attempts: 3 },
+        );
+      }
       return;
     }
     await this.storage.delete(a.storageKey);
