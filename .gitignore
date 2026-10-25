@@ -15,3 +15,5 @@ blob-report/
 .vscode/*
 !.vscode/extensions.json
 .claude/
+.storage/
+dist-worker/

@@ -33,6 +33,22 @@ services:
       timeout: 3s
       retries: 20
 
+  # Antivirus de adjuntos. La primera vez descarga las firmas (puede tardar unos minutos
+  # y usa ~1,5 GB de RAM). Mientras no esté listo, los adjuntos quedan "en análisis".
+  clamav:
+    image: clamav/clamav:1.4
+    ports:
+      - '127.0.0.1:3310:3310'
+    volumes:
+      - clamavdata:/var/lib/clamav
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 300s
+
 volumes:
   pgdata:
   redisdata:
+  clamavdata:

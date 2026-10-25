@@ -2,12 +2,14 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { Prisma } from '@tli/db';
 import {
   DEFAULT_AUTO_CLOSE,
+  DEFAULT_EMAIL_SETTINGS,
   DEFAULT_BUSINESS_HOURS,
   DEFAULT_SLA_POLICIES,
   SETTING_KEYS,
   type AutoCloseSettings,
   type BusinessCalendar,
   type BusinessHours,
+  type EmailSettings,
   type Holiday,
   type HolidayInput,
   type SlaPolicies,
@@ -22,6 +24,7 @@ const DEFAULTS: Record<SettingKey, unknown> = {
   [SETTING_KEYS.slaPolicies]: DEFAULT_SLA_POLICIES,
   [SETTING_KEYS.businessHours]: DEFAULT_BUSINESS_HOURS,
   [SETTING_KEYS.autoClose]: DEFAULT_AUTO_CLOSE,
+  [SETTING_KEYS.email]: DEFAULT_EMAIL_SETTINGS,
 };
 
 // La configuración cambia muy poco: se cachea un minuto y se invalida al guardar.
@@ -78,6 +81,14 @@ export class SettingsService {
 
   getBusinessHours(): Promise<BusinessHours> {
     return this.get(SETTING_KEYS.businessHours);
+  }
+
+  getEmailSettings(): Promise<EmailSettings> {
+    return this.get(SETTING_KEYS.email);
+  }
+
+  updateEmailSettings(value: EmailSettings, actor: AuthContext, meta: RequestMeta) {
+    return this.set(SETTING_KEYS.email, value, actor, meta);
   }
 
   getAutoClose(): Promise<AutoCloseSettings> {

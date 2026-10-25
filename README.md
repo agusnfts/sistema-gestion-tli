@@ -17,14 +17,15 @@ La documentación de diseño está en [`docs/`](docs/README.md) (arquitectura, m
 ## Stack
 
 - **Monorepo** pnpm: `apps/api` (NestJS + Prisma), `apps/web` (React + Vite + Tailwind), `packages/shared` (schemas zod, permisos), `packages/db` (schema Prisma, migraciones, seeds).
-- **PostgreSQL 16**, Redis 7 (desde Fase 2 para jobs).
+- **PostgreSQL 16**, **Redis 7** (colas BullMQ) y **ClamAV** (antivirus de adjuntos).
+- **Worker**: mismo código que la API en otro proceso (`apps/api/src/worker.main.ts`, ver [ADR 0014](docs/adr/0014-worker-same-codebase.md)).
 - Tests: Vitest (unitarios y e2e de API), Playwright (e2e de interfaz). CI en GitHub Actions.
 
 ## Requisitos
 
 - Node.js 22 o superior (`.nvmrc`).
 - pnpm 10 (`corepack enable` lo instala según `packageManager`). En Windows, si `corepack enable` da `EPERM`, usá `npm install -g pnpm@10.15.1` (no requiere administrador).
-- Docker Desktop (para PostgreSQL y Redis locales).
+- Docker Desktop (para PostgreSQL, Redis y ClamAV locales). ClamAV usa ~1,5 GB de RAM y la primera vez tarda unos minutos en descargar sus firmas.
 
 ## Levantar en local
 
@@ -33,7 +34,7 @@ pnpm install
 pnpm dev
 ```
 
-`pnpm dev` crea `.env` a partir de `.env.example` (con una clave MFA aleatoria) si no existe, levanta PostgreSQL y Redis con Docker, compila los paquetes compartidos, aplica migraciones, corre el seed de desarrollo y arranca:
+`pnpm dev` crea `.env` a partir de `.env.example` (con una clave MFA aleatoria) si no existe, levanta PostgreSQL, Redis y ClamAV con Docker, compila los paquetes compartidos, aplica migraciones, corre el seed de desarrollo y arranca la API, el worker y la web:
 
 - Web: http://localhost:5173
 - API: http://localhost:3000/api (healthcheck en `/api/health`)
@@ -68,7 +69,7 @@ Para la primera vez con Playwright: `pnpm --filter @tli/web exec playwright inst
 
 Los tests e2e de la API pueden usar una base aparte definiendo `TEST_DATABASE_URL` (ver `.env.example`).
 
-## Seguridad implementada en Fase 1
+## Seguridad implementada
 
 - Contraseñas con **argon2id**. Política: mínimo 12 caracteres, bloqueo de contraseñas comunes y de las que contienen el nombre o el email.
 - **MFA TOTP obligatorio** para cualquier rol con permisos de gestión (Admin, IT o roles personalizados). Incluye 10 códigos de recuperación y protección contra la reutilización de códigos.
@@ -79,6 +80,8 @@ Los tests e2e de la API pueden usar una base aparte definiendo `TEST_DATABASE_UR
 - **Auditoría append-only** con cadena de hashes verificable, protegida por un trigger en la base ([ADR 0008](docs/adr/0008-immutable-audit-log.md)).
 - **Usuario de base con mínimo privilegio** (`tli_app`, solo DML). Las migraciones corren con el owner.
 - Logs estructurados (pino) sin cookies, tokens ni credenciales.
+- **Adjuntos**: tipo validado por contenido (no por extensión), 25 MB máximo, cuarentena hasta que ClamAV los libera, guardados fuera del webroot y servidos por la API con chequeo de permisos y CSP `sandbox` ([ADR 0006](docs/adr/0006-file-storage-antivirus.md)).
+- **Mail opcional**: apagado por defecto; el SMTP se configura por variables de entorno (la contraseña nunca va a la base) y los mails llevan solo título, resumen y link.
 
 ## Diseño
 

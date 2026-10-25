@@ -27,6 +27,11 @@ import { Field, Input, Select } from '@/components/ui/form';
 import { Alert, Badge, Card, Spinner } from '@/components/ui/misc';
 import { Dialog } from '@/components/ui/dialog';
 import { PriorityLabel, SlaBadge, StatusBadge } from './ui';
+import {
+  AttachmentList,
+  AttachmentPicker,
+  useAttachmentUploads,
+} from '@/features/attachments/attachments';
 
 const textareaClass =
   'w-full rounded-[var(--radius-control)] border border-border-strong bg-surface px-3 py-2 text-sm aria-[invalid=true]:border-danger';
@@ -88,6 +93,12 @@ export function TicketDetailPage() {
   const ticket = useQuery({
     queryKey: ['tickets', 'detail', id],
     queryFn: () => api<TicketDetail>(`/tickets/${id}`),
+    // La conversación se actualiza sola; más seguido mientras hay adjuntos en análisis.
+    refetchInterval: (q) => {
+      const d = q.state.data;
+      const all = d ? [...d.attachments, ...d.comments.flatMap((c) => c.attachments)] : [];
+      return all.some((a) => a.scanStatus === 'PENDING_SCAN') ? 3_000 : 20_000;
+    },
   });
 
   const setData = (data: TicketDetail) => {
@@ -147,6 +158,7 @@ export function TicketDetailPage() {
               {t.requester.fullName} · {formatDateTime(t.createdAt)}
             </p>
             <p className="mt-2 whitespace-pre-wrap text-sm">{t.description}</p>
+            <AttachmentList items={t.attachments} />
             {extras.length > 0 && (
               <dl className="mt-4 grid gap-3 border-t border-border pt-4 text-sm sm:grid-cols-2">
                 {extras.map(([k, v]) => (
@@ -199,6 +211,7 @@ export function TicketDetailPage() {
                         <span>{formatDateTime(item.c.createdAt)}</span>
                       </p>
                       <p className="mt-2 whitespace-pre-wrap text-sm">{item.c.body}</p>
+                      <AttachmentList items={item.c.attachments} />
                     </Card>
                   </li>
                 ) : (
@@ -504,19 +517,24 @@ function ReplyBox({
 }) {
   const [body, setBody] = useState('');
   const [internal, setInternal] = useState(false);
+  const attachments = useAttachmentUploads();
   const m = useTicketMutation(t.id, (d) => {
     setBody('');
+    attachments.clear();
     onSaved(d);
   });
 
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!body.trim()) return m.setError('Escribí un comentario');
-    m.mutate({ path: '/comments', body: { body, visibility: internal ? 'INTERNAL' : 'PUBLIC' } });
+    m.mutate({
+      path: '/comments',
+      body: { body, visibility: internal ? 'INTERNAL' : 'PUBLIC', attachmentIds: attachments.ids },
+    });
   }
 
   return (
-    <form onSubmit={submit} className="space-y-2">
+    <form onSubmit={submit} onPaste={attachments.onPaste} className="space-y-2">
       {m.error && <Alert tone="danger">{m.error}</Alert>}
       {t.canManage && (
         <div role="radiogroup" aria-label="Tipo de comentario" className="flex gap-1">
@@ -555,7 +573,8 @@ function ReplyBox({
         value={body}
         onChange={(e) => setBody(e.target.value)}
       />
-      <Button type="submit" loading={m.isPending}>
+      <AttachmentPicker state={attachments} compact />
+      <Button type="submit" loading={m.isPending} disabled={attachments.uploading}>
         {internal ? 'Guardar nota interna' : 'Enviar respuesta'}
       </Button>
     </form>

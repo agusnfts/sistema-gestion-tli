@@ -29,3 +29,4 @@ Sistema web interno del área de Tecnología Logística e Innovación (TLI) de T
 | [0011](adr/0011-ai-readiness-chunks.md)          | Fragmentos de contenido preparados para IA               | Aceptado |
 | [0012](adr/0012-infrastructure-sizing.md)        | Infraestructura y dimensionamiento                       | Aceptado |
 | [0013](adr/0013-input-channels-extensibility.md) | Canales de entrada extensibles (mail y chatbot a futuro) | Aceptado |
+| [0014](adr/0014-worker-same-codebase.md)         | Worker: mismo código que la API, otro proceso            | Aceptado |

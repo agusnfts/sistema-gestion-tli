@@ -8,6 +8,7 @@ export default tseslint.config(
   {
     ignores: [
       '**/dist/**',
+      '**/dist-worker/**',
       '**/coverage/**',
       '**/node_modules/**',
       '**/playwright-report/**',

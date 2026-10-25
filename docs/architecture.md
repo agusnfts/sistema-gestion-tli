@@ -9,25 +9,25 @@ flowchart LR
     C -- "/api/*" --> A[api<br/>NestJS]
     A --> P[(PostgreSQL 16)]
     A --> R[(Redis 7)]
-    A --> S[(MinIO<br/>S3)]
-    R -- BullMQ --> K[worker<br/>Node + poppler + tesseract]
+    A --> S[(Volumen<br/>adjuntos)]
+    R -- BullMQ --> K[worker<br/>mismo código que la API]
     K --> P
     K --> S
     K --> V[ClamAV<br/>clamd]
     K -. opcional, apagado .-> M[SMTP]
 ```
 
-Solo Caddy expone puertos (80/443). PostgreSQL, Redis, MinIO y ClamAV viven en una red Docker interna.
+Solo Caddy expone puertos (80/443). PostgreSQL, Redis y ClamAV viven en una red Docker interna; los adjuntos, en un volumen.
 
 ## Componentes
 
-| Componente        | Responsabilidad                                                                                                                                                          |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `apps/web`        | SPA React + Vite + TypeScript + Tailwind + shadcn/ui. React Router, TanStack Query, react-hook-form + zod.                                                               |
-| `apps/api`        | API REST NestJS. Auth, RBAC, dominios de negocio, emisión de URLs firmadas, encolado de jobs.                                                                            |
-| `apps/worker`     | Consumidores BullMQ: antivirus, extracción de texto/OCR, fragmentación, SLA, notificaciones, mail opcional, cierre automático (deshabilitado por defecto), importadores. |
-| `packages/shared` | Schemas zod, enums, tipos y la lógica pura del calendario hábil / SLA (usada por api y worker).                                                                          |
-| `packages/db`     | Schema Prisma, migraciones (incluye SQL manual para FTS) y cliente compartido.                                                                                           |
+| Componente                             | Responsabilidad                                                                                                                                                                                                                                                  |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`                             | SPA React + Vite + TypeScript + Tailwind + shadcn/ui. React Router, TanStack Query, react-hook-form + zod.                                                                                                                                                       |
+| `apps/api`                             | API REST NestJS. Auth, RBAC, dominios de negocio, emisión de URLs firmadas, encolado de jobs.                                                                                                                                                                    |
+| worker (`apps/api/src/worker.main.ts`) | Mismo código que la API en otro proceso ([ADR 0014](adr/0014-worker-same-codebase.md)). Consumidores BullMQ: antivirus, extracción de texto/OCR, fragmentación, SLA, notificaciones, mail opcional, cierre automático (deshabilitado por defecto), importadores. |
+| `packages/shared`                      | Schemas zod, enums, tipos y la lógica pura del calendario hábil / SLA (usada por api y worker).                                                                                                                                                                  |
+| `packages/db`                          | Schema Prisma, migraciones (incluye SQL manual para FTS) y cliente compartido.                                                                                                                                                                                   |
 
 ## Organización por dominio (backend)
 

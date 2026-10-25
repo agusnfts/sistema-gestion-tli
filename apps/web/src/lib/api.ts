@@ -1,4 +1,4 @@
-import type { ApiError as ApiErrorBody } from '@tli/shared';
+import type { ApiError as ApiErrorBody, AttachmentInfo } from '@tli/shared';
 
 export class ApiError extends Error {
   constructor(
@@ -61,6 +61,30 @@ export async function api<T>(path: string, opts: RequestOptions = {}, retried = 
     throw new ApiError(res.status, err.message ?? 'Error inesperado', err.issues ?? [], err.code);
   }
   return data as T;
+}
+
+/** Sube un archivo (multipart) a /api/attachments. */
+export async function uploadFile(file: File, retried = false): Promise<AttachmentInfo> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch('/api/attachments', {
+    method: 'POST',
+    headers: { 'X-CSRF-Token': await getCsrfToken(), Accept: 'application/json' },
+    credentials: 'same-origin',
+    body: form,
+  });
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const err = (data ?? {}) as Partial<ApiErrorBody> & { code?: string };
+    if (res.status === 403 && err.code === 'CSRF' && !retried) {
+      await getCsrfToken(true);
+      return uploadFile(file, true);
+    }
+    const message =
+      res.status === 413 ? 'El archivo supera los 25 MB' : (err.message ?? 'Error al subir');
+    throw new ApiError(res.status, message, err.issues ?? [], err.code);
+  }
+  return data as AttachmentInfo;
 }
 
 /** Vuelca los errores de validación del servidor sobre los campos de un formulario. */

@@ -53,6 +53,7 @@ model User {
   timeEntries      TimeEntry[]
   notifications    Notification[]
   activityEvents   ActivityEvent[]
+  attachments      Attachment[]
 
   @@index([status])
 }
@@ -272,6 +273,7 @@ model Ticket {
   area        Area?           @relation(fields: [areaId], references: [id])
   comments    TicketComment[]
   timeEntries TimeEntry[]
+  attachments Attachment[]
 
   @@index([status, assigneeId])
   @@index([requesterId, createdAt])
@@ -280,15 +282,16 @@ model Ticket {
 }
 
 model TicketComment {
-  id         String     @id @default(uuid()) @db.Uuid
-  ticketId   String     @db.Uuid
-  authorId   String     @db.Uuid
-  body       String
-  visibility Visibility @default(PUBLIC)
-  source     Channel    @default(WEB)
-  createdAt  DateTime   @default(now())
-  ticket     Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  author     User       @relation(fields: [authorId], references: [id])
+  id          String       @id @default(uuid()) @db.Uuid
+  ticketId    String       @db.Uuid
+  authorId    String       @db.Uuid
+  body        String
+  visibility  Visibility   @default(PUBLIC)
+  source      Channel      @default(WEB)
+  createdAt   DateTime     @default(now())
+  ticket      Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author      User         @relation(fields: [authorId], references: [id])
+  attachments Attachment[]
 
   @@index([ticketId, createdAt])
 }
@@ -355,4 +358,41 @@ model Holiday {
   date      DateTime @unique @db.Date
   name      String
   createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Fase 2b: adjuntos (ADR 0006)
+// ---------------------------------------------------------------------------
+
+enum ScanStatus {
+  PENDING_SCAN
+  CLEAN
+  INFECTED
+}
+
+// Un adjunto se sube antes de crear el ticket o el comentario y después se vincula.
+// Los no vinculados se borran a las 24 h. Cada módulo que acepte adjuntos suma su FK.
+model Attachment {
+  id           String     @id @default(uuid()) @db.Uuid
+  // Ruta relativa dentro del almacenamiento: quarantine/<id> o clean/<id>.
+  storageKey   String     @unique
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  sha256       String
+  scanStatus   ScanStatus @default(PENDING_SCAN)
+  scanDetail   String?
+  uploadedById String     @db.Uuid
+  ticketId     String?    @db.Uuid
+  commentId    String?    @db.Uuid
+  createdAt    DateTime   @default(now())
+  scannedAt    DateTime?
+
+  uploadedBy User           @relation(fields: [uploadedById], references: [id])
+  ticket     Ticket?        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  comment    TicketComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([commentId])
+  @@index([uploadedById, createdAt])
 }

@@ -33,6 +33,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { FilesService, toAttachmentInfo } from '../files/files.service';
 import type { AuthContext, RequestMeta } from '../common/auth-context';
 import {
   priorityChangePatch,
@@ -61,6 +62,7 @@ export class TicketsService {
     private readonly audit: AuditService,
     private readonly settings: SettingsService,
     private readonly notifications: NotificationsService,
+    private readonly files: FilesService,
   ) {}
 
   private async slaContext(): Promise<SlaContext> {
@@ -129,6 +131,7 @@ export class TicketsService {
           resolutionDueAt: due.resolutionDueAt,
         },
       });
+      await this.files.link(input.attachmentIds, actor, { ticketId: t.id }, tx);
       await tx.activityEvent.create({
         data: {
           entityType: 'ticket',
@@ -267,7 +270,7 @@ export class TicketsService {
     const [comments, activity, timeEntries, ctx] = await Promise.all([
       this.prisma.ticketComment.findMany({
         where: { ticketId: id, visibility: seesInternal ? undefined : 'PUBLIC' },
-        include: { author: userRef },
+        include: { author: userRef, attachments: { orderBy: { createdAt: 'asc' } } },
         orderBy: { createdAt: 'asc' },
       }),
       this.prisma.activityEvent.findMany({
@@ -288,6 +291,10 @@ export class TicketsService {
         : Promise.resolve(null),
       this.slaContext(),
     ]);
+    const ticketAttachments = await this.prisma.attachment.findMany({
+      where: { ticketId: id, commentId: null },
+      orderBy: { createdAt: 'asc' },
+    });
 
     return {
       ...this.toListItem(t, ctx, new Date()),
@@ -299,6 +306,7 @@ export class TicketsService {
       closedAt: t.closedAt?.toISOString() ?? null,
       resolutionCause: t.resolutionCause,
       resolutionSolution: t.resolutionSolution,
+      attachments: ticketAttachments.map(toAttachmentInfo),
       comments: comments.map((c) => ({
         id: c.id,
         author: c.author,
@@ -306,6 +314,7 @@ export class TicketsService {
         visibility: c.visibility,
         createdAt: c.createdAt.toISOString(),
         fromStaff: c.authorId !== t.requesterId,
+        attachments: c.attachments.map(toAttachmentInfo),
       })),
       activity: activity.map((a) => ({
         id: a.id,
@@ -603,14 +612,22 @@ export class TicketsService {
     const now = new Date();
     const isStaffReply = !isRequester && input.visibility === 'PUBLIC';
 
-    await this.prisma.ticketComment.create({
-      data: {
-        ticketId: id,
-        authorId: actor.user.id,
-        body: input.body,
-        visibility: input.visibility,
-        createdAt: now,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      const comment = await tx.ticketComment.create({
+        data: {
+          ticketId: id,
+          authorId: actor.user.id,
+          body: input.body,
+          visibility: input.visibility,
+          createdAt: now,
+        },
+      });
+      await this.files.link(
+        input.attachmentIds,
+        actor,
+        { ticketId: id, commentId: comment.id },
+        tx,
+      );
     });
     // La primera respuesta pública de IT cumple el SLA de primera respuesta.
     if (isStaffReply && !t.firstRespondedAt) {

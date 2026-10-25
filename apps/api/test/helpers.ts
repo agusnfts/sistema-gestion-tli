@@ -78,6 +78,13 @@ export class Client {
     return this.agent.patch(url).set('x-csrf-token', this.csrf).send(body);
   }
 
+  upload(data: Buffer, filename: string) {
+    return this.agent
+      .post('/api/attachments')
+      .set('x-csrf-token', this.csrf)
+      .attach('file', data, filename);
+  }
+
   put(url: string, body: object = {}) {
     return this.agent.put(url).set('x-csrf-token', this.csrf).send(body);
   }

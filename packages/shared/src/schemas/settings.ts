@@ -76,6 +76,7 @@ export const NOTIFICATION_KINDS = [
   'TICKET_COMMENTED',
   'TICKET_SLA_AT_RISK',
   'TICKET_SLA_BREACHED',
+  'FILE_INFECTED',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
@@ -94,4 +95,15 @@ export const SETTING_KEYS = {
   slaPolicies: 'sla.policies',
   businessHours: 'calendar.businessHours',
   autoClose: 'tickets.autoClose',
+  email: 'notifications.email',
 } as const;
+
+export const emailSettingsSchema = z.object({ enabled: z.boolean() });
+export type EmailSettings = z.infer<typeof emailSettingsSchema>;
+export const DEFAULT_EMAIL_SETTINGS: EmailSettings = { enabled: false };
+
+/** Estado del mail saliente. El servidor SMTP se configura por variables de entorno. */
+export type EmailSettingsResponse = EmailSettings & {
+  smtpConfigured: boolean;
+  from: string | null;
+};

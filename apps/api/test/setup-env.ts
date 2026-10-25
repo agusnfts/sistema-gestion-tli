@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 // Variables para e2e. En CI vienen del workflow; en local se completan con el .env de la raíz.
 const rootEnv = resolve(__dirname, '../../../.env');
@@ -15,5 +16,9 @@ Object.assign(process.env, {
   COOKIE_SECURE: 'false',
   THROTTLE_AUTH_LIMIT: '10000',
   THROTTLE_DEFAULT_LIMIT: '10000',
+  // Sin Redis ni worker: los jobs (antivirus, mails) corren en el mismo proceso.
+  QUEUE_INLINE: 'true',
+  CLAMAV_DRIVER: 'eicar',
+  STORAGE_LOCAL_DIR: join(tmpdir(), 'tli-e2e-adjuntos'),
 });
 process.env.MFA_ENCRYPTION_KEY ||= Buffer.alloc(32, 7).toString('base64');

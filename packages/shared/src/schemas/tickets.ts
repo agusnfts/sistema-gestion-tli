@@ -24,6 +24,38 @@ const description = z
   .min(10, 'Agregá un poco más de detalle (mínimo 10 caracteres)')
   .max(10_000);
 const choose = { error: 'Elegí una opción' };
+
+/** Adjuntos: límites y tipos permitidos (ADR 0006). */
+export const MAX_ATTACHMENTS = 10;
+export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+export const ALLOWED_ATTACHMENT_EXTENSIONS = [
+  'png',
+  'jpg',
+  'jpeg',
+  'gif',
+  'webp',
+  'pdf',
+  'docx',
+  'xlsx',
+  'zip',
+  'txt',
+  'csv',
+  'xml',
+  'json',
+  'md',
+  'log',
+] as const;
+
+export const SCAN_STATUSES = ['PENDING_SCAN', 'CLEAN', 'INFECTED'] as const;
+export type ScanStatus = (typeof SCAN_STATUSES)[number];
+
+export type AttachmentInfo = {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  scanStatus: ScanStatus;
+};
 const optionalText = (max: number) => z.string().trim().max(max).optional();
 const optionalDate = z
   .string()
@@ -38,6 +70,10 @@ const common = {
   description,
   warehouseId: uuidSchema.nullable().optional(),
   areaId: uuidSchema.nullable().optional(),
+  attachmentIds: z
+    .array(uuidSchema)
+    .max(MAX_ATTACHMENTS, `Hasta ${MAX_ATTACHMENTS} adjuntos`)
+    .optional(),
 };
 
 export const INTEGRATION_COUNTERPARTS = ['CLIENT', 'CARRIER', 'OTHER'] as const;
@@ -224,6 +260,10 @@ export type CommentVisibility = (typeof COMMENT_VISIBILITIES)[number];
 export const addCommentSchema = z.object({
   body: z.string().trim().min(1, 'Escribí un comentario').max(10_000),
   visibility: z.enum(COMMENT_VISIBILITIES).default('PUBLIC'),
+  attachmentIds: z
+    .array(uuidSchema)
+    .max(MAX_ATTACHMENTS, `Hasta ${MAX_ATTACHMENTS} adjuntos`)
+    .optional(),
 });
 export type AddCommentInput = z.infer<typeof addCommentSchema>;
 
@@ -274,6 +314,7 @@ export type TicketComment = {
   createdAt: string;
   /** El autor es del equipo de IT (para distinguirlo en el hilo). */
   fromStaff: boolean;
+  attachments: AttachmentInfo[];
 };
 
 export type TicketActivity = {
@@ -303,6 +344,8 @@ export type TicketDetail = TicketListItem & {
   closedAt: string | null;
   resolutionCause: string | null;
   resolutionSolution: string | null;
+  /** Adjuntos de la carga inicial del ticket (los de comentarios van en cada comentario). */
+  attachments: AttachmentInfo[];
   comments: TicketComment[];
   activity: TicketActivity[];
   /** Solo para IT. */

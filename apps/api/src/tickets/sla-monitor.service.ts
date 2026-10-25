@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import {
   businessMinutesBetween,
   formatTicketNumber,
@@ -10,42 +10,29 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { APP_CONFIG, type AppConfig } from '../config/config';
-
-const INTERVAL_MS = 60_000;
+import { JobRegistry } from '../queue/queue.service';
 
 type Clock = 'firstResponse' | 'resolution';
 
 /**
- * Revisa periódicamente los relojes de SLA (alerta al quedar el 25 % y marca de vencido)
- * y el cierre automático de tickets resueltos (si está habilitado).
- * En la Fase 2b esto pasa a un job repetible del worker (BullMQ), que garantiza una sola ejecución
- * aunque haya varias instancias. Mientras tanto, las marcas se escriben con un update condicional,
+ * Revisa los relojes de SLA (alerta al quedar el 25 % y marca de vencido) y el cierre
+ * automático de tickets resueltos (si está habilitado). Corre como job periódico del
+ * worker (cada minuto, ADR 0014). Las marcas se escriben con un update condicional,
  * así que dos pasadas simultáneas no notifican dos veces.
  */
 @Injectable()
-export class SlaMonitorService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(SlaMonitorService.name);
-  private timer?: NodeJS.Timeout;
-
+export class SlaMonitorService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly notifications: NotificationsService,
-    @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly jobs: JobRegistry,
   ) {}
 
   onModuleInit(): void {
-    if (this.config.env === 'test') return;
-    this.timer = setInterval(() => {
-      this.runOnce(new Date()).catch((err) =>
-        this.logger.error(err instanceof Error ? err.stack : String(err)),
-      );
-    }, INTERVAL_MS);
-  }
-
-  onModuleDestroy(): void {
-    clearInterval(this.timer);
+    this.jobs.register('maintenance.sla', async () => {
+      await this.runOnce(new Date());
+    });
   }
 
   /** Una pasada completa. Público para los tests. */

@@ -9,6 +9,7 @@ import {
   minutesPerBusinessDay,
   type AutoCloseSettings,
   type BusinessHours,
+  type EmailSettingsResponse,
   type Holiday,
   type SlaPolicies,
 } from '@tli/shared';
@@ -28,13 +29,14 @@ export function SettingsPage() {
     <>
       <PageHeader
         title="Configuración"
-        description="SLA, horario hábil, feriados y cierre automático de tickets."
+        description="SLA, horario hábil, feriados, cierre automático y mail saliente."
       />
       <div className="space-y-6">
         <SlaSection />
         <BusinessHoursSection />
         <HolidaysSection />
         <AutoCloseSection />
+        <EmailSection />
       </div>
     </>
   );
@@ -373,6 +375,71 @@ function AutoCloseSection() {
       <Button className="mt-4" loading={save.isPending} onClick={() => save.mutate(draft)}>
         Guardar
       </Button>
+    </Card>
+  );
+}
+
+function EmailSection() {
+  const qc = useQueryClient();
+  const status = useQuery({
+    queryKey: ['settings', 'email'],
+    queryFn: () => api<EmailSettingsResponse>('/settings/email'),
+  });
+  const save = useMutation({
+    mutationFn: (enabled: boolean) =>
+      api<EmailSettingsResponse>('/settings/email', { method: 'PUT', body: { enabled } }),
+    onSuccess: (data) => qc.setQueryData(['settings', 'email'], data),
+  });
+  const test = useMutation({
+    mutationFn: () => api<{ sentTo: string }>('/settings/email/test', { method: 'POST' }),
+  });
+  if (!status.data) return <Spinner />;
+  const s = status.data;
+
+  return (
+    <Card className="p-5">
+      <h2 className="font-semibold">Mail saliente</h2>
+      <p className="mt-1 text-sm text-muted">
+        Opcional. Los avisos siempre llegan por la campana; si se habilita, también salen por mail
+        (solo título, resumen y link al sistema).
+      </p>
+      <div className="mt-3">
+        {s.smtpConfigured ? (
+          <Alert tone="info">Servidor SMTP configurado. Remitente: {s.from}</Alert>
+        ) : (
+          <Alert tone="warning" title="No hay servidor SMTP configurado">
+            Para usar mail, IT tiene que completar las variables SMTP_* del servidor (la contraseña
+            nunca se guarda en la base).
+          </Alert>
+        )}
+      </div>
+      {(save.error || test.error) && (
+        <div className="mt-3">
+          <Alert tone="danger">{errorText(save.error ?? test.error)}</Alert>
+        </div>
+      )}
+      {test.data && (
+        <div className="mt-3">
+          <Alert tone="success">Mail de prueba enviado a {test.data.sentTo}.</Alert>
+        </div>
+      )}
+      <div className="mt-4 flex flex-wrap items-center gap-4">
+        <Checkbox
+          label="Enviar los avisos también por mail"
+          checked={s.enabled}
+          disabled={!s.smtpConfigured || save.isPending}
+          onChange={(e) => save.mutate(e.target.checked)}
+        />
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={!s.smtpConfigured}
+          loading={test.isPending}
+          onClick={() => test.mutate()}
+        >
+          Enviar mail de prueba
+        </Button>
+      </div>
     </Card>
   );
 }

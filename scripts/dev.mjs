@@ -27,8 +27,10 @@ if (!process.argv.includes('--no-infra')) {
     );
     process.exit(1);
   }
-  console.log('› Levantando PostgreSQL y Redis…');
-  run('docker compose -f docker-compose.dev.yml up -d --wait');
+  console.log('› Levantando PostgreSQL, Redis y ClamAV…');
+  // ClamAV tarda en estar listo la primera vez (descarga firmas): no se lo espera.
+  run('docker compose -f docker-compose.dev.yml up -d');
+  run('docker compose -f docker-compose.dev.yml up -d --wait postgres redis');
 }
 
 console.log('› Compilando paquetes compartidos…');
@@ -38,7 +40,7 @@ console.log('› Aplicando migraciones y seed de desarrollo…');
 run('pnpm db:migrate');
 run('pnpm db:seed:dev');
 
-console.log('› Iniciando api (http://localhost:3000) y web (http://localhost:5173)…');
+console.log('› Iniciando api (http://localhost:3000), worker y web (http://localhost:5173)…');
 const child = spawn(
   'pnpm',
   [

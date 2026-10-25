@@ -31,6 +31,8 @@ export const AUDIT_ACTIONS = [
   'settings.updated',
   'holiday.created',
   'holiday.deleted',
+  'file.downloaded',
+  'file.infected',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -67,4 +69,6 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'settings.updated': 'Configuración modificada',
   'holiday.created': 'Feriado agregado',
   'holiday.deleted': 'Feriado eliminado',
+  'file.downloaded': 'Descarga de adjunto',
+  'file.infected': 'Adjunto rechazado por el antivirus',
 };

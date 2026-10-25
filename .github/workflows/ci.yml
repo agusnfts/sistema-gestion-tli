@@ -79,7 +79,11 @@ jobs:
       - name: Tests e2e de la interfaz
         run: pnpm --filter @tli/web run test:ui
         env:
-          NODE_ENV: production
+          # Modo test: jobs en el mismo proceso (sin Redis ni worker) y antivirus de prueba.
+          NODE_ENV: test
+          QUEUE_INLINE: 'true'
+          CLAMAV_DRIVER: eicar
+          STORAGE_LOCAL_DIR: /tmp/tli-adjuntos
           CI: 'true'
       - uses: actions/upload-artifact@v4
         if: failure()

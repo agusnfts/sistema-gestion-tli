@@ -35,6 +35,7 @@ import { Button, buttonClasses } from '@/components/ui/button';
 import { Field, Input, Select } from '@/components/ui/form';
 import { Alert, Card, PageHeader } from '@/components/ui/misc';
 import { useCatalog } from '@/features/admin/api-hooks';
+import { AttachmentPicker, useAttachmentUploads } from '@/features/attachments/attachments';
 
 const TYPE_ICONS: Record<TicketType, typeof Wrench> = {
   SUPPORT: Wrench,
@@ -125,6 +126,7 @@ function TicketForm({
   const areas = useCatalog('areas');
   const fixedCategory = fixedCategoryFor(type);
   const [error, setError] = useState<string | null>(null);
+  const attachments = useAttachmentUploads();
   // Soporte y accesos tienen SLA completo: se pide la urgencia percibida.
   const isSupport = type === 'SUPPORT' || type === 'ACCESS';
 
@@ -169,7 +171,10 @@ function TicketForm({
   const onSubmit = handleSubmit(async (values) => {
     setError(null);
     try {
-      const res = await api<CreateTicketResponse>('/tickets', { method: 'POST', body: values });
+      const res = await api<CreateTicketResponse>('/tickets', {
+        method: 'POST',
+        body: { ...values, attachmentIds: attachments.ids },
+      });
       await qc.invalidateQueries({ queryKey: ['tickets'] });
       onCreated(res);
     } catch (e) {
@@ -178,7 +183,12 @@ function TicketForm({
   });
 
   return (
-    <form onSubmit={onSubmit} noValidate className="max-w-3xl space-y-5">
+    <form
+      onSubmit={onSubmit}
+      onPaste={attachments.onPaste}
+      noValidate
+      className="max-w-3xl space-y-5"
+    >
       {error && <Alert tone="danger">{error}</Alert>}
       <Card className="space-y-4 p-5">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -394,6 +404,11 @@ function TicketForm({
         </Card>
       )}
 
+      <Card className="p-5">
+        <p className="mb-2 text-sm font-medium">Adjuntos</p>
+        <AttachmentPicker state={attachments} />
+      </Card>
+
       {isSupport && (
         <Card className="p-5">
           <fieldset>
@@ -434,7 +449,7 @@ function TicketForm({
         <Button variant="secondary" onClick={onBack}>
           Volver
         </Button>
-        <Button type="submit" loading={isSubmitting}>
+        <Button type="submit" loading={isSubmitting} disabled={attachments.uploading}>
           Enviar ticket
         </Button>
       </div>

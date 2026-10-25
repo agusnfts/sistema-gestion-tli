@@ -15,6 +15,8 @@ import { CatalogsModule } from './catalogs/catalogs.module';
 import { SettingsModule } from './settings/settings.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TicketsModule } from './tickets/tickets.module';
+import { QueueModule } from './queue/queue.module';
+import { FilesModule } from './files/files.module';
 import { HealthController } from './health/health.controller';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 
@@ -54,6 +56,7 @@ import { HttpExceptionFilter } from './common/http-exception.filter';
       ],
     }),
     PrismaModule,
+    QueueModule,
     AuditModule,
     AuthModule,
     UsersModule,
@@ -62,6 +65,7 @@ import { HttpExceptionFilter } from './common/http-exception.filter';
     SettingsModule,
     NotificationsModule,
     TicketsModule,
+    FilesModule,
   ],
   controllers: [HealthController],
   providers: [
