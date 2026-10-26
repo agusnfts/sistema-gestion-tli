@@ -36,7 +36,7 @@ services:
   # Antivirus de adjuntos. La primera vez descarga las firmas (puede tardar unos minutos
   # y usa ~1,5 GB de RAM). Mientras no esté listo, los adjuntos quedan "en análisis".
   clamav:
-    image: clamav/clamav:1.4
+    image: clamav/clamav:1.5
     ports:
       - '127.0.0.1:3310:3310'
     volumes:
