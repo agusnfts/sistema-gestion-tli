@@ -22,6 +22,7 @@ import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TicketsService } from '../tickets/tickets.service';
 import { FilesService, toAttachmentInfo } from '../files/files.service';
+import { SystemsService } from '../announcements/systems.service';
 import type { AuthContext, RequestMeta } from '../common/auth-context';
 
 const userRef = { select: { id: true, fullName: true } } as const;
@@ -50,6 +51,7 @@ export class ImprovementsService {
     private readonly notifications: NotificationsService,
     private readonly tickets: TicketsService,
     private readonly files: FilesService,
+    private readonly systems: SystemsService,
   ) {}
 
   private toListItem(i: ImprovementRow): ImprovementListItem {
@@ -262,11 +264,14 @@ export class ImprovementsService {
     const problemIds = [...new Set(input.problemIds ?? [])];
     await this.assertProblems(problemIds);
     const ticketIds = await this.ticketsToDerive(input.ticketIds ?? [], problemIds);
+    // El proveedor arranca con el del sistema (catálogo de Sistemas); después se puede cambiar.
+    const providerId = await this.systems.providerOf(input.system);
     const improvement = await this.prisma.$transaction(async (tx) => {
       const i = await tx.improvement.create({
         data: {
           title: input.title,
           system: input.system,
+          providerId,
           requestingAreaId: input.requestingAreaId ?? null,
           currentSituation: input.currentSituation,
           proposal: input.proposal,

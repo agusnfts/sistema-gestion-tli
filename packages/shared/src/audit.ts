@@ -66,6 +66,13 @@ export const AUDIT_ACTIONS = [
   'article.created',
   'article.version.saved',
   'article.status.changed',
+  'system.updated',
+  'distribution_list.created',
+  'distribution_list.updated',
+  'announcement.created',
+  'announcement.updated',
+  'announcement.sent',
+  'announcement.closed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -137,4 +144,11 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'article.created': 'Artículo creado',
   'article.version.saved': 'Nueva versión de artículo',
   'article.status.changed': 'Artículo publicado, archivado o vuelto a borrador',
+  'system.updated': 'Ficha de sistema modificada',
+  'distribution_list.created': 'Lista de distribución creada',
+  'distribution_list.updated': 'Lista de distribución modificada',
+  'announcement.created': 'Aviso de actualización creado',
+  'announcement.updated': 'Aviso de actualización modificado',
+  'announcement.sent': 'Aviso de actualización enviado',
+  'announcement.closed': 'Actualización finalizada o cancelada',
 };

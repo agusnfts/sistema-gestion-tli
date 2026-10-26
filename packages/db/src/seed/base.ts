@@ -2,6 +2,7 @@
 // permisos, roles de sistema y catálogos iniciales.
 import { PrismaClient } from '@prisma/client';
 import {
+  BUSINESS_SYSTEMS,
   DEFAULT_AUTO_CLOSE,
   DEFAULT_BUSINESS_HOURS,
   DEFAULT_SLA_POLICIES,
@@ -13,6 +14,8 @@ import {
 
 const INITIAL_WAREHOUSES = ['Garín', 'Pacheco'];
 const INITIAL_PROVIDERS = ['Interno', 'Molipa', 'SGL', 'TYT'];
+// WMS, TMS, TYT y Ruteo los provee SGL.
+const INITIAL_SYSTEMS_PROVIDER = 'SGL';
 // Plataformas externas habituales; el catálogo se edita desde Administración.
 const INITIAL_PLATFORMS = [
   { name: 'Mercado Libre', category: 'ECOMMERCE' },
@@ -84,6 +87,17 @@ export async function seedBase(prisma: PrismaClient): Promise<void> {
   }
   for (const name of INITIAL_PROVIDERS) {
     await prisma.provider.upsert({ where: { name }, create: { name }, update: {} });
+  }
+  // Ficha de cada sistema propio: solo se crea si no existe (el proveedor se edita en Catálogos).
+  const systemsProvider = await prisma.provider.findUnique({
+    where: { name: INITIAL_SYSTEMS_PROVIDER },
+  });
+  for (const key of BUSINESS_SYSTEMS) {
+    await prisma.systemInfo.upsert({
+      where: { key },
+      create: { key, providerId: systemsProvider?.id ?? null },
+      update: {},
+    });
   }
   for (const p of INITIAL_PLATFORMS) {
     await prisma.platform.upsert({ where: { name: p.name }, create: p, update: {} });

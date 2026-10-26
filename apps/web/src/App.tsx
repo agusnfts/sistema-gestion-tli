@@ -30,6 +30,8 @@ import { ArticleEditorPage } from '@/features/knowledge/ArticleEditorPage';
 import { ClientDetailPage } from '@/features/clients/ClientDetailPage';
 import { IntegrationsPage } from '@/features/integrations/IntegrationsPage';
 import { IntegrationDetailPage } from '@/features/integrations/IntegrationDetailPage';
+import { AnnouncementsPage } from '@/features/announcements/AnnouncementsPage';
+import { AnnouncementDetailPage } from '@/features/announcements/AnnouncementDetailPage';
 import { useHasPermission } from '@/lib/auth';
 
 /** Admin e IT empiezan en Inicio; el usuario común, en "Mis tickets". */
@@ -206,6 +208,22 @@ const router = createBrowserRouter([
             element: (
               <RequirePermission permission="integration.read">
                 <IntegrationDetailPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'actualizaciones',
+            element: (
+              <RequirePermission permission="announcement.manage">
+                <AnnouncementsPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: 'actualizaciones/:id',
+            element: (
+              <RequirePermission permission="announcement.manage">
+                <AnnouncementDetailPage />
               </RequirePermission>
             ),
           },

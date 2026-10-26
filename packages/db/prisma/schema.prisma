@@ -69,6 +69,7 @@ model User {
   documentVersions     DocumentVersion[]
   articles             Article[]
   articleVersions      ArticleVersion[]
+  announcements        UpdateAnnouncement[]
 
   @@index([status])
 }
@@ -160,25 +161,27 @@ model AuditLog {
 }
 
 model Area {
-  id           String        @id @default(uuid()) @db.Uuid
-  name         String        @unique
-  active       Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  users        User[]
-  tickets      Ticket[]
-  improvements Improvement[]
+  id            String               @id @default(uuid()) @db.Uuid
+  name          String               @unique
+  active        Boolean              @default(true)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  users         User[]
+  tickets       Ticket[]
+  improvements  Improvement[]
+  announcements UpdateAnnouncement[]
 }
 
 model Warehouse {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String   @unique
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  users     User[]
-  tickets   Ticket[]
-  clients   Client[]
+  id            String               @id @default(uuid()) @db.Uuid
+  name          String               @unique
+  active        Boolean              @default(true)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  users         User[]
+  tickets       Ticket[]
+  clients       Client[]
+  announcements UpdateAnnouncement[]
 }
 
 model Provider {
@@ -189,6 +192,7 @@ model Provider {
   updatedAt    DateTime           @updatedAt
   improvements Improvement[]
   quotes       IntegrationQuote[]
+  systems      SystemInfo[]
 }
 
 // ---------------------------------------------------------------------------
@@ -1019,4 +1023,101 @@ model ContentChunk {
   @@index([articleVersionId])
   @@index([documentVersionId])
   @@index([integrationId])
+}
+
+// ---------------------------------------------------------------------------
+// Fase 9: sistemas y avisos de actualización
+// ---------------------------------------------------------------------------
+
+// Sistemas propios de la operación (las mismas claves que las categorías de tickets y mejoras).
+enum BusinessSystem {
+  WMS
+  TMS
+  TYT
+  ROUTING
+}
+
+// Ficha de cada sistema: quién lo provee. Las filas las crea el seed base.
+model SystemInfo {
+  key        BusinessSystem @id
+  providerId String?        @db.Uuid
+  notes      String?
+  updatedAt  DateTime       @updatedAt
+  provider   Provider?      @relation(fields: [providerId], references: [id])
+}
+
+// Grupo de destinatarios de avisos: mails sueltos o de grupo (operacion@…), con o sin usuario.
+model DistributionList {
+  id            String               @id @default(uuid()) @db.Uuid
+  name          String               @unique
+  description   String?
+  emails        String[]
+  active        Boolean              @default(true)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  announcements UpdateAnnouncement[]
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  SCHEDULED
+  DONE
+  CANCELLED
+}
+
+enum AnnouncementImpact {
+  NONE
+  DEGRADED
+  OUTAGE
+}
+
+// Aviso de actualización de un sistema para la operación.
+model UpdateAnnouncement {
+  id             String             @id @default(uuid()) @db.Uuid
+  number         Int                @unique @default(autoincrement())
+  title          String
+  systems        BusinessSystem[]
+  reason         String
+  details        String?
+  impact         AnnouncementImpact
+  startsAt       DateTime
+  endsAt         DateTime?
+  status         AnnouncementStatus @default(DRAFT)
+  // Horas antes del inicio para el recordatorio automático; null = sin recordatorio.
+  reminderHours  Int?
+  createdById    String             @db.Uuid
+  sentAt         DateTime?
+  reminderSentAt DateTime?
+  closedAt       DateTime?
+  closingNote    String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  createdBy         User               @relation(fields: [createdById], references: [id])
+  distributionLists DistributionList[]
+  warehouses        Warehouse[]
+  areas             Area[]
+  sends             AnnouncementSend[]
+
+  @@index([status, startsAt])
+}
+
+enum AnnouncementSendKind {
+  NOTICE
+  REMINDER
+  DONE
+  CANCELLED
+}
+
+// Cada envío de un aviso: cuándo, de qué tipo y a cuántas direcciones (no se guardan los mails).
+model AnnouncementSend {
+  id             String               @id @default(uuid()) @db.Uuid
+  announcementId String               @db.Uuid
+  kind           AnnouncementSendKind
+  emailCount     Int
+  userCount      Int
+  emailed        Boolean
+  sentById       String?              @db.Uuid
+  createdAt      DateTime             @default(now())
+  announcement   UpdateAnnouncement   @relation(fields: [announcementId], references: [id], onDelete: Cascade)
 }

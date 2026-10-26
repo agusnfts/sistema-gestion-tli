@@ -1,12 +1,14 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import {
+  BUSINESS_SYSTEM_LABELS,
   CATALOG_KINDS,
   CATALOG_LABELS,
   PLATFORM_CATEGORIES,
   PLATFORM_CATEGORY_LABELS,
   catalogItemSchema,
+  type BusinessSystem,
   type PlatformCategory,
   type CatalogItem,
   type CatalogKind,
@@ -18,9 +20,133 @@ import { Field, Input, Select } from '@/components/ui/form';
 import { Alert, Badge, PageHeader, Spinner, Table, Td, Th } from '@/components/ui/misc';
 import { Dialog } from '@/components/ui/dialog';
 import { useCatalog } from './api-hooks';
+import { useSystems } from '@/features/announcements/components';
 
 export function CatalogsPage() {
-  const [kind, setKind] = useState<CatalogKind>('areas');
+  const [tab, setTab] = useState<CatalogKind | 'systems'>('areas');
+  return tab === 'systems' ? (
+    <CatalogsLayout tab={tab} onTab={setTab}>
+      <SystemsTab />
+    </CatalogsLayout>
+  ) : (
+    <CatalogTab kind={tab} onTab={setTab} />
+  );
+}
+
+function CatalogsLayout({
+  tab,
+  onTab,
+  actions,
+  children,
+}: {
+  tab: CatalogKind | 'systems';
+  onTab: (t: CatalogKind | 'systems') => void;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  const tabs = [
+    ...CATALOG_KINDS.map((k) => ({ value: k, label: CATALOG_LABELS[k].plural })),
+    { value: 'systems' as const, label: 'Sistemas' },
+  ];
+  return (
+    <>
+      <PageHeader
+        title="Catálogos"
+        description="Valores que se usan en los formularios. Desactivar un valor lo oculta sin borrar el historial."
+        actions={actions}
+      />
+      <div
+        role="tablist"
+        aria-label="Catálogo"
+        className="mb-4 flex flex-wrap gap-1 border-b border-border"
+      >
+        {tabs.map((t) => (
+          <button
+            key={t.value}
+            role="tab"
+            aria-selected={t.value === tab}
+            onClick={() => onTab(t.value)}
+            className={cn(
+              '-mb-px border-b-2 px-3 py-2 text-sm',
+              t.value === tab
+                ? 'border-primary font-medium text-primary'
+                : 'border-transparent text-muted hover:text-fg',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {children}
+    </>
+  );
+}
+
+/** Proveedor de cada sistema propio: se propone al crear mejoras y se muestra en los avisos. */
+function SystemsTab() {
+  const systems = useSystems();
+  const providers = useCatalog('providers');
+  const qc = useQueryClient();
+  const save = useMutation({
+    mutationFn: ({ key, providerId }: { key: BusinessSystem; providerId: string | null }) =>
+      api(`/systems/${key}`, { method: 'PATCH', body: { providerId } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['systems'] }),
+  });
+  if (systems.isLoading) return <Spinner />;
+  return (
+    <>
+      {save.error && (
+        <div className="mb-3">
+          <Alert tone="danger">
+            {save.error instanceof ApiError ? save.error.message : 'Error'}
+          </Alert>
+        </div>
+      )}
+      <Table>
+        <thead>
+          <tr>
+            <Th>Sistema</Th>
+            <Th>Proveedor</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {systems.data?.map((s) => (
+            <tr key={s.key}>
+              <Td className="font-medium">{BUSINESS_SYSTEM_LABELS[s.key]}</Td>
+              <Td>
+                <Select
+                  aria-label={`Proveedor de ${BUSINESS_SYSTEM_LABELS[s.key]}`}
+                  className="max-w-xs"
+                  value={s.provider?.id ?? ''}
+                  disabled={save.isPending}
+                  onChange={(e) => save.mutate({ key: s.key, providerId: e.target.value || null })}
+                >
+                  <option value="">Sin proveedor</option>
+                  {providers.data?.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </Select>
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+      <p className="mt-3 text-xs text-muted">
+        Al crear una mejora de un sistema se propone su proveedor (después se puede cambiar).
+      </p>
+    </>
+  );
+}
+
+function CatalogTab({
+  kind,
+  onTab,
+}: {
+  kind: CatalogKind;
+  onTab: (t: CatalogKind | 'systems') => void;
+}) {
   const [editing, setEditing] = useState<CatalogItem | 'new' | null>(null);
   const items = useCatalog(kind, true);
   const qc = useQueryClient();
@@ -32,34 +158,15 @@ export function CatalogsPage() {
   const labels = CATALOG_LABELS[kind];
 
   return (
-    <>
-      <PageHeader
-        title="Catálogos"
-        description="Valores que se usan en los formularios. Desactivar un valor lo oculta sin borrar el historial."
-        actions={
-          <Button onClick={() => setEditing('new')}>
-            <Plus className="size-4" aria-hidden /> Nuevo {labels.singular.toLowerCase()}
-          </Button>
-        }
-      />
-      <div role="tablist" aria-label="Catálogo" className="mb-4 flex gap-1 border-b border-border">
-        {CATALOG_KINDS.map((k) => (
-          <button
-            key={k}
-            role="tab"
-            aria-selected={k === kind}
-            onClick={() => setKind(k)}
-            className={cn(
-              '-mb-px border-b-2 px-3 py-2 text-sm',
-              k === kind
-                ? 'border-primary font-medium text-primary'
-                : 'border-transparent text-muted hover:text-fg',
-            )}
-          >
-            {CATALOG_LABELS[k].plural}
-          </button>
-        ))}
-      </div>
+    <CatalogsLayout
+      tab={kind}
+      onTab={onTab}
+      actions={
+        <Button onClick={() => setEditing('new')}>
+          <Plus className="size-4" aria-hidden /> Nuevo {labels.singular.toLowerCase()}
+        </Button>
+      }
+    >
       {items.isLoading ? (
         <Spinner />
       ) : (
@@ -104,7 +211,7 @@ export function CatalogsPage() {
           onClose={() => setEditing(null)}
         />
       )}
-    </>
+    </CatalogsLayout>
   );
 }
 

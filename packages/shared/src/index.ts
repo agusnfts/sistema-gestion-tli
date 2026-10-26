@@ -24,3 +24,5 @@ export * from './schemas/integrations';
 export * from './schemas/documents';
 export * from './schemas/knowledge';
 export * from './schemas/dashboard';
+export * from './schemas/announcements';
+export * from './announcement-email';

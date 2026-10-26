@@ -34,7 +34,8 @@ Los permisos `*.own` agregan además un filtro por dueño en el servicio (ej. `r
 | `kb.publish`              | Publicar y cambiar visibilidad                                   |   ✓   |  ✓  |    –    |
 | `document.bulk_upload`    | Carga masiva de documentos                                       |   ✓   |  ✓  |    –    |
 | `dashboard.view`          | Ver el dashboard                                                 |   ✓   |  ✓  |    –    |
-| `catalog.manage`          | Áreas, depósitos, proveedores, categorías                        |   ✓   |  –  |    –    |
+| `announcement.manage`     | Avisos de actualización y listas de distribución                 |   ✓   |  ✓  |    –    |
+| `catalog.manage`          | Áreas, depósitos, proveedores, sistemas, categorías              |   ✓   |  –  |    –    |
 | `user.manage`             | Alta, baja, reseteo de contraseña y MFA                          |   ✓   |  –  |    –    |
 | `role.manage`             | Crear roles y asignar permisos                                   |   ✓   |  –  |    –    |
 | `settings.manage`         | SLA, horario hábil, feriados, cierre automático, mail            |   ✓   |  –  |    –    |

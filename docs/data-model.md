@@ -227,6 +227,19 @@ Implementación (Fase 6):
 - La búsqueda aplica en SQL la visibilidad y los permisos (artículos publicados para quien no gestiona la base; documentos públicos, internos o vinculados a integraciones/clientes según permisos).
 - Texto enriquecido (ADR 0009) en artículos, "Cómo funciona" y comentarios de tickets. El texto plano anterior se sigue mostrando tal cual; el HTML siempre pasa por el sanitizador del servidor. Las descripciones de tickets, problemas y mejoras siguen en texto plano.
 
+## Sistemas y avisos de actualización (Fase 9)
+
+| Entidad              | Campos                                                                                                                                                                                                                                               |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SystemInfo`         | key (`WMS`\|`TMS`\|`TYT`\|`ROUTING`), providerId, notes. Una fila por sistema, creada por el seed base con SGL como proveedor.                                                                                                                       |
+| `DistributionList`   | name (único), description, emails (`String[]`, en minúsculas y sin repetir), active                                                                                                                                                                  |
+| `UpdateAnnouncement` | number (`ACT-0001`), title, systems (`BusinessSystem[]`), reason, details, impact (`NONE`\|`DEGRADED`\|`OUTAGE`), startsAt, endsAt, status (`DRAFT`\|`SCHEDULED`\|`DONE`\|`CANCELLED`), reminderHours, sentAt, reminderSentAt, closedAt, closingNote |
+| `AnnouncementSend`   | announcementId, kind (`NOTICE`\|`REMINDER`\|`DONE`\|`CANCELLED`), emailCount, userCount, emailed, sentById. No guarda las direcciones.                                                                                                               |
+
+- Destinatarios de un aviso: N:M implícitas con `DistributionList`, `Warehouse` y `Area`. Se resuelven al enviar: mails de las listas activas + usuarios activos cuyo depósito o área por defecto coincide (deduplicados). Sale un mail por destinatario.
+- El recordatorio lo manda el job `announcements.reminders` del worker (cada 5 min); se marca antes de enviar para no duplicarlo. Si se cambia el inicio, se vuelve a programar.
+- Al anonimizar a un titular, su mail se quita de todas las listas.
+
 ## Índices relevantes
 
 - `Ticket(status, assigneeId)`, `Ticket(requesterId, createdAt)`, `Ticket(resolutionDueAt) WHERE status IN (...)`.

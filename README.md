@@ -18,6 +18,7 @@ La documentación de diseño está en [`docs/`](docs/README.md) (arquitectura, m
 | 6    | Conocimiento: artículos con versiones, biblioteca con búsqueda en PDF, texto enriquecido     | ✅                       |
 | 7    | Dashboard: indicadores con período y responsable, cada número lleva a su lista               | ✅                       |
 | 8    | Producción: imágenes Docker, Caddy con TLS, backups cifrados, derechos de titulares, ASVS L2 | ✅ (falta dominio y VPS) |
+| 9    | Avisos de actualización a la operación, listas de distribución, catálogo de Sistemas (SGL)   | ✅                       |
 
 ## Stack
 

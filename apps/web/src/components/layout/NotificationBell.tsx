@@ -91,7 +91,7 @@ export function NotificationBell() {
                         ? 'bg-transparent'
                         : n.kind === 'TICKET_SLA_BREACHED'
                           ? 'bg-danger'
-                          : n.kind === 'TICKET_SLA_AT_RISK'
+                          : n.kind === 'TICKET_SLA_AT_RISK' || n.kind === 'SYSTEM_UPDATE'
                             ? 'bg-warning'
                             : 'bg-brand',
                     )}

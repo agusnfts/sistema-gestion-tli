@@ -4,7 +4,12 @@ import { APP_CONFIG, type AppConfig } from '../config/config';
 
 /** Jobs en segundo plano (ADR 0014). */
 export type JobName =
-  'files.scan' | 'documents.extract' | 'email.send' | 'maintenance.sla' | 'maintenance.cleanup';
+  | 'files.scan'
+  | 'documents.extract'
+  | 'email.send'
+  | 'maintenance.sla'
+  | 'maintenance.cleanup'
+  | 'announcements.reminders';
 type Handler = (data: Record<string, unknown>) => Promise<void>;
 
 export const QUEUE_NAME = 'tli';
@@ -85,6 +90,11 @@ export class QueueService implements OnModuleDestroy {
       'limpieza-cada-hora',
       { every: 3_600_000 },
       { name: 'maintenance.cleanup' },
+    );
+    await this.queue.upsertJobScheduler(
+      'recordatorios-de-avisos',
+      { every: 5 * 60_000 },
+      { name: 'announcements.reminders' },
     );
     this.logger.log('Jobs periódicos programados');
   }

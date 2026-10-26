@@ -50,7 +50,19 @@ Marco: RGPD (art. 30) como referencia de buenas prácticas y **Ley 25.326** de P
 | Conservación  | Mientras exista la relación comercial                          |
 | Medidas       | RBAC, auditoría de cambios                                     |
 
-### 4. Auditoría y logs
+### 4. Avisos de actualización de sistemas
+
+| Campo         | Detalle                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------- |
+| Finalidad     | Avisar a la operación cuándo se actualiza un sistema y qué impacto tiene                          |
+| Titulares     | Personal de TML (con o sin usuario del sistema) incluido en listas de distribución                |
+| Datos         | Email (personal o de grupo) y nombre de la lista                                                  |
+| Base          | Interés legítimo (continuidad operativa)                                                          |
+| Destinatarios | IT y Admin cargan las listas; el mail lo recibe cada persona por separado                         |
+| Conservación  | Mientras la persona trabaje en el área de la lista; se quita al anonimizar                        |
+| Medidas       | RBAC (`announcement.manage`), un mail por destinatario (sin ver a los demás), auditoría sin mails |
+
+### 5. Auditoría y logs
 
 | Campo         | Detalle                                                        |
 | ------------- | -------------------------------------------------------------- |

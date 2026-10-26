@@ -77,6 +77,7 @@ export const NOTIFICATION_KINDS = [
   'TICKET_SLA_AT_RISK',
   'TICKET_SLA_BREACHED',
   'FILE_INFECTED',
+  'SYSTEM_UPDATE',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 

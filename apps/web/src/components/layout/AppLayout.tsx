@@ -17,6 +17,7 @@ import {
   KeyRound,
   Lightbulb,
   LogOut,
+  Megaphone,
   Menu,
   Shield,
   Tags,
@@ -30,6 +31,7 @@ import { cn } from '@/lib/utils';
 import { Logo } from './Logo';
 import { useLogout } from '@/features/auth/useLogout';
 import { NotificationBell } from './NotificationBell';
+import { UpcomingBanner } from '@/features/announcements/UpcomingBanner';
 
 type NavItem = { to: string; label: string; icon: typeof Home; permission?: PermissionKey };
 
@@ -41,6 +43,12 @@ const MAIN_NAV: NavItem[] = [
   { to: '/mejoras', label: 'Mejoras', icon: Lightbulb, permission: 'improvement.read' },
   { to: '/integraciones', label: 'Integraciones', icon: Cable, permission: 'integration.read' },
   { to: '/clientes', label: 'Clientes', icon: Building2, permission: 'client.read' },
+  {
+    to: '/actualizaciones',
+    label: 'Actualizaciones',
+    icon: Megaphone,
+    permission: 'announcement.manage',
+  },
   { to: '/conocimiento', label: 'Conocimiento', icon: BookOpen, permission: 'kb.read.public' },
   { to: '/mis-tickets', label: 'Mis tickets', icon: Ticket, permission: 'ticket.read.own' },
   { to: '/tickets/nuevo', label: 'Nuevo ticket', icon: PlusCircle, permission: 'ticket.create' },
@@ -196,6 +204,7 @@ export function AppLayout() {
         </aside>
         <main id="contenido" tabIndex={-1} className="min-w-0 flex-1 p-4 md:p-6">
           <div className="mx-auto max-w-6xl">
+            <UpcomingBanner />
             <Outlet />
           </div>
         </main>

@@ -36,6 +36,11 @@ export class PrivacyService {
       },
     });
     if (!u) throw new NotFoundException('Usuario inexistente');
+
+    const distributionLists = await this.prisma.distributionList.findMany({
+      where: { emails: { has: u.email } },
+      select: { name: true },
+    });
     const [tickets, comments, timeEntries, attachments, sessions, notifications, audit] =
       await Promise.all([
         this.prisma.ticket.findMany({
@@ -128,6 +133,7 @@ export class PrivacyService {
       attachments,
       sessions,
       notifications,
+      distributionLists: distributionLists.map((l) => l.name),
       auditTrail: audit,
     };
   }
@@ -170,6 +176,8 @@ export class PrivacyService {
       await tx.session.deleteMany({ where: { userId: id } });
       await tx.mfaRecoveryCode.deleteMany({ where: { userId: id } });
       await tx.notification.deleteMany({ where: { userId: id } });
+      // Su mail sale de las listas de distribución de avisos.
+      await tx.$executeRaw`UPDATE "DistributionList" SET emails = array_remove(emails, ${u.email}), "updatedAt" = now() WHERE ${u.email} = ANY(emails)`;
       await tx.userRole.deleteMany({ where: { userId: id } });
       await this.audit.log(
         {

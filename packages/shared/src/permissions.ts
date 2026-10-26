@@ -25,7 +25,9 @@ export const PERMISSIONS = {
   'kb.publish': 'Publicar y cambiar visibilidad en la base de conocimiento',
   'document.bulk_upload': 'Carga masiva de documentos',
   'dashboard.view': 'Ver el dashboard',
-  'catalog.manage': 'Gestionar áreas, depósitos, proveedores y categorías',
+  'announcement.manage':
+    'Cargar y enviar avisos de actualización y gestionar listas de distribución',
+  'catalog.manage': 'Gestionar áreas, depósitos, proveedores, sistemas y categorías',
   'user.manage': 'Gestionar usuarios',
   'role.manage': 'Gestionar roles y permisos',
   'settings.manage': 'Gestionar la configuración del sistema',
