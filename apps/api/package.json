@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",
-    "@nestjs/core": "^11.1.6",
+    "@nestjs/core": "^12.2.0",
     "@nestjs/platform-express": "^11.1.6",
     "@nestjs/throttler": "^6.4.0",
     "@tli/db": "workspace:*",
