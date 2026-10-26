@@ -15,16 +15,17 @@
     "seed:dev": "dotenv -e ../../.env -- tsx src/seed/dev.ts",
     "create-admin": "dotenv -e ../../.env -- tsx src/seed/create-admin.ts",
     "recover-access": "dotenv -e ../../.env -- tsx src/seed/recover-access.ts",
-    "test": "echo \"(sin tests unitarios)\""
+    "test": "echo \"(sin tests unitarios)\"",
+    "verify-backup": "dotenv -e ../../.env -- tsx src/seed/verify-backup.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",
     "@prisma/client": "^6.16.2",
-    "@tli/shared": "workspace:*"
+    "@tli/shared": "workspace:*",
+    "prisma": "^6.16.2"
   },
   "devDependencies": {
     "dotenv-cli": "^10.0.0",
-    "prisma": "^6.16.2",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   }

@@ -1,0 +1,22 @@
+# Nada de secretos, datos locales ni artefactos de desarrollo dentro de las imágenes.
+**/node_modules
+**/dist
+**/dist-worker
+**/.vite
+**/*.tsbuildinfo
+.git
+.env
+.env.*
+!.env.example
+deploy/.env*
+deploy/backups
+.storage
+**/.storage
+.claude
+coverage
+playwright-report
+test-results
+blob-report
+apps/web/e2e/.auth
+docs
+*.log

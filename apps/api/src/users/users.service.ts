@@ -292,7 +292,8 @@ export class UsersService {
     return roles.map((r) => r.key).sort();
   }
 
-  private async assertAnotherActiveAdmin(excludeUserId: string): Promise<void> {
+  /** No deja el sistema sin un Admin activo (también lo usa la anonimización). */
+  async assertAnotherActiveAdmin(excludeUserId: string): Promise<void> {
     const count = await this.prisma.user.count({
       where: {
         id: { not: excludeUserId },

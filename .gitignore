@@ -5,6 +5,9 @@ coverage/
 .env
 .env.*
 !.env.example
+!deploy/.env.prod.example
+# Backups cifrados generados en una PC de prueba
+deploy/backups/
 *.log
 .DS_Store
 .vite/
@@ -20,3 +23,6 @@ dist-worker/
 
 # Sesiones guardadas por Playwright
 apps/web/e2e/.auth/
+deploy/build.log
+# Claves de backup (age): nunca dentro del repo
+deploy/*key*.txt

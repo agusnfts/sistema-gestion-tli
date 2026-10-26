@@ -64,12 +64,19 @@ Marco: RGPD (art. 30) como referencia de buenas prácticas y **Ley 25.326** de P
 ## Derechos de los titulares
 
 - **Acceso / portabilidad:** Admin exporta los datos del titular en JSON (`privacy.export`). Queda auditado.
+- **Cómo se hace:** Administración → Usuarios → menú de la persona → "Exportar datos (JSON)" o "Anonimizar…". La anonimización no reescribe el texto libre de tickets y comentarios: si contiene datos personales del titular, IT lo edita a mano.
 - **Supresión / anonimización:** Admin anonimiza al titular (`privacy.anonymize`): nombre y email se reemplazan, se borran sesiones y MFA; tickets y auditoría se conservan referenciando un usuario anonimizado. Queda auditado.
 - Plazo de respuesta: 10 días corridos (acceso, Ley 25.326 art. 14) y 5 días hábiles (rectificación/supresión, art. 16).
 
 ## Transferencias internacionales
 
-A definir según la ubicación del VPS y del storage de backups (Fase 8).
+Pendiente de la decisión de ubicación del VPS y del destino de los backups (ver [deploy](deploy.md#pendiente-de-definir)).
+
+- **VPS en Argentina:** no hay transferencia internacional.
+- **VPS fuera de Argentina:** preferir un país con nivel de protección adecuado según la AAIP (por ejemplo, los de la Unión Europea). Si no lo es, firmar con el proveedor las cláusulas contractuales modelo (Disposición AAIP 60-E/2016) y dejar constancia acá.
+- **Backups:** viajan cifrados con age (clave pública en el servidor, privada fuera). El proveedor del almacenamiento no puede leerlos; igual se registra su país.
+
+Hasta que se defina, este registro sigue abierto. La inscripción de la base ante la AAIP está pendiente (decisión del área).
 
 ## Encargados del tratamiento
 

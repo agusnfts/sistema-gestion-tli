@@ -1,0 +1,47 @@
+# Reverse proxy y TLS automático (Let's Encrypt). Con DOMAIN=localhost usa una CA interna
+# (para probar el stack en una PC). La SPA y la API comparten origen (ADR 0004).
+{
+	email {$ACME_EMAIL}
+	# Los logs de acceso no guardan cookies ni encabezados de autorización.
+	log {
+		format json
+	}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Adjuntos: 25 MB + margen del multipart; F50: 5 MB.
+	request_body {
+		max_size 27MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy api:3000 {
+			# La API toma la IP real de este encabezado (TRUST_PROXY=1).
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+
+	handle {
+		root * /srv
+		# CSP de la SPA (la API manda la suya). 'unsafe-inline' solo en estilos: los usan
+		# algunos componentes (anchos de barras, editor). Nada de scripts inline.
+		header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		# Los assets llevan hash en el nombre: se cachean para siempre; index.html nunca.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		header /index.html Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

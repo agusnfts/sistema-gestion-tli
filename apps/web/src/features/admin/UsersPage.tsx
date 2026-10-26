@@ -4,7 +4,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { Copy, MoreHorizontal, Plus } from 'lucide-react';
 import type { Paginated, TemporaryPasswordResponse, UserListItem, UserStatus } from '@tli/shared';
 import { api, ApiError } from '@/lib/api';
-import { useMe } from '@/lib/auth';
+import { useHasPermission, useMe } from '@/lib/auth';
 import { formatDateTime } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input, Select } from '@/components/ui/form';
@@ -13,7 +13,7 @@ import { ConfirmDialog, Dialog } from '@/components/ui/dialog';
 import { UserFormDialog } from './UserFormDialog';
 
 type Action = {
-  kind: 'reset-password' | 'reset-mfa' | 'unlock' | 'toggle-status';
+  kind: 'reset-password' | 'reset-mfa' | 'unlock' | 'toggle-status' | 'anonymize';
   user: UserListItem;
 };
 
@@ -38,6 +38,15 @@ const ACTION_COPY: Record<
     description: `${u.fullName} va a poder intentar ingresar de nuevo.`,
     confirm: 'Desbloquear',
   }),
+  anonymize: (u) => ({
+    title: 'Anonimizar titular',
+    description:
+      `Derecho de supresión (Ley 25.326 / RGPD). Se reemplazan el nombre y el email de ${u.fullName}, ` +
+      'se borran sus sesiones, MFA y avisos, y la cuenta queda deshabilitada para siempre. ' +
+      'Sus tickets y la auditoría se conservan con el usuario anonimizado. No se puede deshacer.',
+    confirm: 'Anonimizar',
+    danger: true,
+  }),
   'toggle-status': (u) =>
     u.status === 'ACTIVE'
       ? {
@@ -56,6 +65,7 @@ const ACTION_COPY: Record<
 export function UsersPage() {
   const qc = useQueryClient();
   const { data: me } = useMe();
+  const can = useHasPermission();
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<UserStatus | ''>('');
   const [page, setPage] = useState(1);
@@ -79,6 +89,9 @@ export function UsersPage() {
           body: { status: a.user.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' },
         });
       }
+      if (a.kind === 'anonymize') {
+        return api(`/privacy/users/${a.user.id}/anonymize`, { method: 'POST' });
+      }
       return api<unknown>(`/users/${a.user.id}/${a.kind}`, { method: 'POST' });
     },
     onSuccess: (data, a) => {
@@ -89,6 +102,22 @@ export function UsersPage() {
     onError: (e) =>
       setActionError(e instanceof ApiError ? e.message : 'No se pudo completar la acción'),
   });
+
+  /** Derecho de acceso: descarga un JSON con todos los datos personales del titular. */
+  async function exportData(u: UserListItem) {
+    try {
+      const data = await api<unknown>(`/privacy/users/${u.id}/export`);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `datos-${u.email.split('@')[0]}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : 'No se pudo exportar');
+    }
+  }
 
   const copy = action ? ACTION_COPY[action.kind](action.user) : null;
   const totalPages = users.data
@@ -211,6 +240,16 @@ export function UsersPage() {
                         {u.id !== me?.id && (
                           <MenuItem onSelect={() => setAction({ kind: 'toggle-status', user: u })}>
                             {u.status === 'ACTIVE' ? 'Deshabilitar' : 'Habilitar'}
+                          </MenuItem>
+                        )}
+                        {can('privacy.export') && (
+                          <MenuItem onSelect={() => void exportData(u)}>
+                            Exportar datos (JSON)
+                          </MenuItem>
+                        )}
+                        {can('privacy.anonymize') && u.id !== me?.id && (
+                          <MenuItem onSelect={() => setAction({ kind: 'anonymize', user: u })}>
+                            Anonimizar…
                           </MenuItem>
                         )}
                       </DropdownMenu.Content>

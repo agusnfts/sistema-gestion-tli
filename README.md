@@ -6,18 +6,18 @@ La documentación de diseño está en [`docs/`](docs/README.md) (arquitectura, m
 
 ## Estado
 
-| Fase | Contenido                                                                                    | Estado    |
-| ---- | -------------------------------------------------------------------------------------------- | --------- |
-| 0    | Diseño                                                                                       | ✅        |
-| 1    | Base: monorepo, auth + MFA, usuarios, roles, auditoría, layout, CI                           | ✅        |
-| 2a   | Ticketera: formulario guiado, estados, SLA, notificaciones, Mis tickets, bandeja de IT       | ✅        |
-| 2b   | Adjuntos con antivirus, worker (BullMQ), mail opcional                                       | ✅        |
-| 3    | Problemas: agrupar tickets por causa raíz, resolución en bloque, sugerencia de similares     | ✅        |
-| 4    | Mejoras: kanban, derivación de tickets y problemas, cierre en bloque con mensaje             | ✅        |
-| 5    | Clientes e integraciones: maestro, importación del F50, cotizaciones, documentos versionados | ✅        |
-| 6    | Conocimiento: artículos con versiones, biblioteca con búsqueda en PDF, texto enriquecido     | ✅        |
-| 7    | Dashboard: indicadores con período y responsable, cada número lleva a su lista               | ✅        |
-| 8    | Producción                                                                                   | Pendiente |
+| Fase | Contenido                                                                                    | Estado                   |
+| ---- | -------------------------------------------------------------------------------------------- | ------------------------ |
+| 0    | Diseño                                                                                       | ✅                       |
+| 1    | Base: monorepo, auth + MFA, usuarios, roles, auditoría, layout, CI                           | ✅                       |
+| 2a   | Ticketera: formulario guiado, estados, SLA, notificaciones, Mis tickets, bandeja de IT       | ✅                       |
+| 2b   | Adjuntos con antivirus, worker (BullMQ), mail opcional                                       | ✅                       |
+| 3    | Problemas: agrupar tickets por causa raíz, resolución en bloque, sugerencia de similares     | ✅                       |
+| 4    | Mejoras: kanban, derivación de tickets y problemas, cierre en bloque con mensaje             | ✅                       |
+| 5    | Clientes e integraciones: maestro, importación del F50, cotizaciones, documentos versionados | ✅                       |
+| 6    | Conocimiento: artículos con versiones, biblioteca con búsqueda en PDF, texto enriquecido     | ✅                       |
+| 7    | Dashboard: indicadores con período y responsable, cada número lleva a su lista               | ✅                       |
+| 8    | Producción: imágenes Docker, Caddy con TLS, backups cifrados, derechos de titulares, ASVS L2 | ✅ (falta dominio y VPS) |
 
 ## Stack
 
@@ -109,7 +109,13 @@ Los colores se definen como design tokens en [`apps/web/src/styles.css`](apps/we
 
 ## Despliegue
 
-Se documenta en la Fase 8 (`docs/deploy.md`): Docker Compose de producción, Caddy con TLS, hardening del VPS y backups cifrados.
+Docker Compose en un VPS: Caddy (TLS automático) delante de la API, el worker (con OCR), PostgreSQL, Redis y ClamAV. Todo lo necesario está en [`deploy/`](deploy) y el paso a paso en [`docs/deploy.md`](docs/deploy.md): preparación y hardening del servidor, instalación, primer Admin, backups cifrados con simulacro de restauración, actualizaciones y monitoreo.
+
+- [Checklist de seguridad (OWASP ASVS L2 / ISO 27001)](docs/security-checklist.md)
+- [Runbook de incidentes](docs/runbook.md)
+- [Registro de tratamiento de datos](docs/data-processing-register.md) (Ley 25.326 / RGPD)
+
+Pendiente de decisión: el dominio y la ubicación del VPS y de los backups.
 
 ## Convenciones
 

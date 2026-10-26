@@ -1,0 +1,209 @@
+# Producción (Fase 8). Uso, desde la carpeta deploy/ del servidor:
+#   cp .env.prod.example .env    # completar (nunca commitear .env)
+#   docker compose up -d --build
+# Solo Caddy publica puertos (80/443). El resto vive en redes internas.
+name: tli
+
+x-hardening: &hardening
+  restart: unless-stopped
+  security_opt: ['no-new-privileges:true']
+  cap_drop: [ALL]
+  logging:
+    driver: json-file
+    options: { max-size: '10m', max-file: '5' }
+
+x-app-env: &app-env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://tli_app:${APP_DB_PASSWORD}@postgres:5432/tli?schema=public
+  APP_ORIGIN: https://${DOMAIN}
+  COOKIE_SECURE: 'true'
+  TRUST_PROXY: '1'
+  LOG_LEVEL: info
+  MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY}
+  MFA_ISSUER: ${MFA_ISSUER:-Sistema de Gestión TLI}
+  REDIS_URL: redis://redis:6379
+  STORAGE_LOCAL_DIR: /data/storage
+  CLAMAV_DRIVER: clamd
+  CLAMAV_HOST: clamav
+  CLAMAV_PORT: '3310'
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_SECURE: ${SMTP_SECURE:-false}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASS: ${SMTP_PASS:-}
+  SMTP_FROM: ${SMTP_FROM:-Sistema de Gestión TLI <no-responder@tml.com.ar>}
+
+services:
+  caddy:
+    <<: *hardening
+    build: { context: .., target: web }
+    image: tli/web:latest
+    cap_add: [NET_BIND_SERVICE]
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    depends_on:
+      api: { condition: service_healthy }
+    mem_limit: 128m
+
+  api:
+    <<: *hardening
+    build: { context: .., target: app }
+    image: tli/app:latest
+    environment: *app-env
+    volumes:
+      - storage:/data/storage
+    networks: [edge, internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 512m
+
+  worker:
+    <<: *hardening
+    build: { context: .., target: worker }
+    image: tli/worker:latest
+    environment: *app-env
+    volumes:
+      - storage:/data/storage
+    networks: [internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    read_only: true
+    # El OCR escribe temporales (páginas rasterizadas).
+    tmpfs: ['/tmp:size=512m']
+    mem_limit: 1g
+
+  # Migraciones + seed base (idempotente). Corre como owner del schema y termina.
+  migrate:
+    build: { context: .., target: app }
+    image: tli/app:latest
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://tli:${OWNER_DB_PASSWORD}@postgres:5432/tli?schema=public
+      DATABASE_MIGRATION_URL: postgresql://tli:${OWNER_DB_PASSWORD}@postgres:5432/tli?schema=public
+    working_dir: /app/packages/db
+    command: ['sh', '-c', 'npx prisma migrate deploy && node dist/seed/base.js']
+    networks: [internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    restart: 'no'
+
+  postgres:
+    <<: *hardening
+    image: postgres:16-alpine
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    environment:
+      POSTGRES_DB: tli
+      POSTGRES_USER: tli
+      POSTGRES_PASSWORD: ${OWNER_DB_PASSWORD}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+    command: ['postgres', '-c', 'shared_buffers=512MB', '-c', 'max_connections=50']
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    networks: [internal]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tli -d tli']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 1536m
+
+  redis:
+    <<: *hardening
+    image: redis:7-alpine
+    cap_add: [SETGID, SETUID]
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redisdata:/data
+    networks: [internal]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    mem_limit: 256m
+
+  clamav:
+    <<: *hardening
+    image: clamav/clamav:1.4
+    cap_add: [CHOWN, SETGID, SETUID, DAC_OVERRIDE]
+    volumes:
+      - clamavdata:/var/lib/clamav
+    networks: [internal]
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 60s
+      timeout: 10s
+      retries: 10
+      start_period: 600s
+    mem_limit: 2g
+
+  # Backup cifrado: `docker compose --profile backup run --rm backup` (lo dispara el cron
+  # del servidor). Ver docs/deploy.md.
+  backup:
+    build: { context: ., dockerfile: backup/Dockerfile }
+    image: tli/backup:latest
+    profiles: [backup]
+    environment:
+      PGHOST: postgres
+      PGUSER: tli
+      PGPASSWORD: ${OWNER_DB_PASSWORD}
+      PGDATABASE: tli
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - storage:/data/storage:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    networks: [internal]
+    security_opt: ['no-new-privileges:true']
+    restart: 'no'
+
+  # Restauración REAL (pisa la base y los archivos). Solo ante un desastre, con api y worker
+  # frenados: ver "Restaurar" en docs/deploy.md. La clave privada se monta solo para esto.
+  restore:
+    build: { context: ., dockerfile: backup/Dockerfile }
+    image: tli/backup:latest
+    profiles: [restore]
+    entrypoint: ['/usr/local/bin/restore.sh']
+    environment:
+      PGHOST: postgres
+      PGUSER: tli
+      PGPASSWORD: ${OWNER_DB_PASSWORD}
+      PGDATABASE: tli
+    volumes:
+      - storage:/data/storage
+      - ${BACKUP_DIR:-./backups}:/backups:ro
+      - ${BACKUP_KEY_FILE:-./backup-key.txt}:/run/backup-key:ro
+    networks: [internal]
+    restart: 'no'
+
+networks:
+  edge: {}
+  # Red de servicios internos: no publica puertos al host, así que la base, Redis y ClamAV
+  # no son alcanzables desde afuera. Conserva salida a internet (ClamAV baja firmas).
+  internal: {}
+
+volumes:
+  pgdata:
+  redisdata:
+  clamavdata:
+  storage:
+  caddy_data:
+  caddy_config:
