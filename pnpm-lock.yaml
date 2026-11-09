@@ -98,8 +98,8 @@ importers:
         specifier: ^1.5.4
         version: 1.5.4
       read-excel-file:
-        specifier: 9.3.10
-        version: 9.3.10
+        specifier: 9.3.14
+        version: 9.3.14
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -409,6 +409,10 @@ packages:
 
   '@babel/runtime@7.29.10':
     resolution: {integrity: sha512-NpugTzbKgGrNe45Ui32cN8vCFFMxVtP/9rtfwv0nP5FRDAjvYBxJcLVpYA9mr1jxP6cnIT7x9LUzuDTbWYYNRA==}
+    engines: {node: '>=6.9.0'}
+
+  '@babel/runtime@7.29.13':
+    resolution: {integrity: sha512-v+oN26xP4YIlQsbQ/CbTH1WG5m/l/DjKKZNy/Kp3f/AFvbgt7Em/D0FeMM3O2hX0YzeN2M16W8lOpyhIkfCBcQ==}
     engines: {node: '>=6.9.0'}
 
   '@babel/template@7.29.7':
@@ -4018,8 +4022,8 @@ packages:
     resolution: {integrity: sha512-QNhWdt7nrgVWWQG58QuGsAR3jv3Hbe4mb4vz7w2csnHavciZJgda1CPNaldF6eVxv90ud3jUXpKlHL69gO38yw==}
     engines: {node: '>=0.10.0'}
 
-  read-excel-file@9.3.10:
-    resolution: {integrity: sha512-zFcBdzunLCGBmLRT4Q3mLPJnhKPAXXfGAZ83feODlEqX2aRUbgF1h/n2oY0UF7I8tVwnJNRas6fTRD5veDUs+g==}
+  read-excel-file@9.3.14:
+    resolution: {integrity: sha512-rfEpNMthm/REIpSCLnGTrQD5aW+U9rrhFuGYF+XRO8Soz+7b+rAOW1z2vJbNiEINbFPbjRW16vz0KnX41Si9qw==}
     engines: {node: '>=18'}
 
   readable-stream@2.3.8:
@@ -4761,8 +4765,8 @@ packages:
     resolution: {integrity: sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA==}
     engines: {node: '>=0.10.0'}
 
-  worker-f@0.1.20:
-    resolution: {integrity: sha512-7z5K5z4x++FykhpDTfriT/dOu7CmSap9BBv38DVFU3CD38obopq+DoFH75yBV3butpGm+OeqR9BKdSvYJSnUfQ==}
+  worker-f@0.1.21:
+    resolution: {integrity: sha512-pMi7wCz3uZVxRvRSphyaIYoN7rm9bV0usifTib7u01kKU+hOo+/hFwhajYnpOCHyr0Xp3/2ulc4F+Jm2a3YIfg==}
     engines: {node: '>=12'}
 
   wrap-ansi@6.2.0:
@@ -4980,6 +4984,8 @@ snapshots:
       '@babel/helper-plugin-utils': 7.29.7
 
   '@babel/runtime@7.29.10': {}
+
+  '@babel/runtime@7.29.13': {}
 
   '@babel/template@7.29.7':
     dependencies:
@@ -6157,7 +6163,7 @@ snapshots:
   '@testing-library/dom@10.4.2':
     dependencies:
       '@babel/code-frame': 7.29.7
-      '@babel/runtime': 7.29.10
+      '@babel/runtime': 7.29.13
       '@types/aria-query': 5.0.4
       aria-query: 5.3.0
       dom-accessibility-api: 0.5.16
@@ -8406,12 +8412,12 @@ snapshots:
 
   react@19.3.1: {}
 
-  read-excel-file@9.3.10:
+  read-excel-file@9.3.14:
     dependencies:
       fflate: 0.8.3
       saxen: 11.2.0
       unzipper-esm: 0.13.3
-      worker-f: 0.1.20
+      worker-f: 0.1.21
 
   readable-stream@2.3.8:
     dependencies:
@@ -9118,7 +9124,7 @@ snapshots:
 
   word-wrap@1.2.5: {}
 
-  worker-f@0.1.20: {}
+  worker-f@0.1.21: {}
 
   wrap-ansi@6.2.0:
     dependencies:
